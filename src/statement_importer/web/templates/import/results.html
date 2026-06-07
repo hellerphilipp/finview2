@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>Import Results</h2>
+</hgroup>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Transactions Imported</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in results %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td>{{ r.count }}</td>
+      <td>
+        {% if r.error %}
+          <span style="color: var(--pico-color-red-500);">{{ r.error }}</span>
+        {% else %}
+          ✓ Success
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<a href="/import/upload" role="button" class="outline">Import more files</a>
+<a href="/process" role="button" class="outline secondary">View pending transactions</a>
+
+{% endblock %}

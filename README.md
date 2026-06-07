@@ -29,7 +29,34 @@ src/statement_importer/
             └── swisscard.yaml
 ```
 
-## Setup
+## Web UI
+
+A browser-based interface built with Flask and [Pico.css](https://picocss.com) with three sections:
+
+- **Masterdata** — manage accounts and their CSV mapping specs
+- **Import** — upload CSV files, assign each to an account, import
+- **Process** — view all pending transactions (stub)
+
+### Quickstart
+
+```bash
+just run
+```
+
+This creates a local `.venv`, installs dependencies, runs migrations, and starts the dev server at <http://localhost:5000>.
+
+Individual recipes:
+
+```bash
+just install   # create .venv and install deps
+just migrate   # run alembic upgrade head
+just run       # start the Flask dev server
+just test      # run the test suite
+```
+
+The DB defaults to `statement_importer.db` in the project root. Override with `STATEMENT_IMPORTER_DB=/path/to/file.db just run`.
+
+## Setup (library use)
 
 ```bash
 python3 -m venv .venv

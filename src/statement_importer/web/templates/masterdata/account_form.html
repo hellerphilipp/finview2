@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>{% if account %}Edit Account{% else %}New Account{% endif %}</h2>
+</hgroup>
+
+<form method="post">
+  <label for="name">
+    Name
+    <input type="text" id="name" name="name" value="{{ account.name if account else '' }}" required>
+  </label>
+
+  <label for="currency">
+    Currency
+    <input type="text" id="currency" name="currency" value="{{ account.currency if account else '' }}" placeholder="CHF" maxlength="10" required>
+  </label>
+
+  <label for="mapping_spec">
+    Mapping Spec
+    <select id="mapping_spec" name="mapping_spec">
+      {% for display_name, path in specs %}
+        <option value="{{ path or '' }}"
+          {% if account and account.mapping_spec == path %}selected{% endif %}
+          {% if not account and not path %}selected{% endif %}
+        >{{ display_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <button type="submit">Save</button>
+  <a href="/masterdata/accounts" role="button" class="outline secondary">Cancel</a>
+</form>
+
+{% endblock %}

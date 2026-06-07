@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>Assign Accounts</h2>
+  <p>Select an account for each uploaded file, then click Import.</p>
+</hgroup>
+
+{% if files %}
+<form method="post" action="/import/assign">
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Account</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for file in files %}
+      <tr>
+        <td>{{ file.name }}</td>
+        <td>
+          <select name="account_{{ loop.index0 }}" required>
+            {% for account in accounts %}
+            <option value="{{ account.id }}">{{ account.name }} ({{ account.currency }})</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit">Import</button>
+  <a href="/import/upload" role="button" class="outline secondary">Cancel</a>
+</form>
+{% else %}
+<p>No files uploaded. <a href="/import/upload">Upload files</a> first.</p>
+{% endif %}
+
+{% endblock %}

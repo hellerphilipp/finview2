@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 
 from .models import Account, Transaction, TransactionStatus
 
+_UNSET = object()
+
 
 # ---------------------------------------------------------------------------
 # Accounts
@@ -49,19 +51,19 @@ def get_account(session: Session, account_id: int) -> Account | None:
 def update_account(
     session: Session,
     account_id: int,
-    name: str | None = None,
-    currency: str | None = None,
-    mapping_spec: str | None = None,
+    name: str | None = _UNSET,
+    currency: str | None = _UNSET,
+    mapping_spec: str | None = _UNSET,
 ) -> Account:
     """Update fields on an existing account.  Pass only the fields to change."""
     account = session.get(Account, account_id)
     if account is None:
         raise ValueError(f"Account {account_id} not found")
-    if name is not None:
+    if name is not _UNSET:
         account.name = name
-    if currency is not None:
+    if currency is not _UNSET:
         account.currency = currency
-    if mapping_spec is not None:
+    if mapping_spec is not _UNSET:
         account.mapping_spec = mapping_spec
     session.commit()
     return account

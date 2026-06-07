@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>Process</h2>
+  <p>Pending transactions awaiting review.</p>
+</hgroup>
+
+{% if transactions %}
+<table>
+  <thead>
+    <tr>
+      <th>Account</th>
+      <th>Date</th>
+      <th>Description</th>
+      <th>Amount</th>
+      <th>Currency</th>
+      <th>Source File</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for tx in transactions %}
+    <tr>
+      <td>{{ accounts[tx.account_id].name if tx.account_id in accounts else tx.account_id }}</td>
+      <td>{{ tx.timestamp.strftime("%Y-%m-%d") }}</td>
+      <td>{{ tx.description }}</td>
+      <td>{{ "%.2f"|format(tx.amount) }}</td>
+      <td>{{ accounts[tx.account_id].currency if tx.account_id in accounts else "—" }}</td>
+      <td>{{ tx.source_file or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No pending transactions.</p>
+{% endif %}
+
+{% endblock %}

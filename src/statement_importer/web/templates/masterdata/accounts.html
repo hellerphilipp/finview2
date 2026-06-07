@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>Accounts</h2>
+  <p>Manage your accounts and their CSV mapping specs.</p>
+</hgroup>
+
+<a href="/masterdata/accounts/new" role="button" class="outline">+ New Account</a>
+
+{% if accounts %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Currency</th>
+      <th>Mapping Spec</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for account in accounts %}
+    <tr>
+      <td>{{ account.name }}</td>
+      <td>{{ account.currency }}</td>
+      <td>{{ account.mapping_spec or "—" }}</td>
+      <td><a href="/masterdata/accounts/{{ account.id }}/edit" role="button" class="outline secondary">Edit</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No accounts yet. Create one to get started.</p>
+{% endif %}
+
+<article>
+  <header><strong>Merchants</strong></header>
+  <p>Merchant management coming soon.</p>
+</article>
+
+{% endblock %}

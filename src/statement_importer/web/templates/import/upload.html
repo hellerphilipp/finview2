@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+
+<hgroup>
+  <h2>Import Statements</h2>
+  <p>Upload one or more CSV files to import.</p>
+</hgroup>
+
+<form method="post" action="/import/upload" enctype="multipart/form-data">
+  <label for="files">
+    CSV Files
+    <input type="file" id="files" name="files" accept=".csv" multiple required>
+  </label>
+  <button type="submit">Upload</button>
+</form>
+
+{% endblock %}
