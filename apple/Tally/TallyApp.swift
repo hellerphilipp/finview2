@@ -6,9 +6,16 @@ struct TallyApp: App {
     let container: ModelContainer
 
     init() {
-        let container = Persistence.makeContainer()
-        Seeder.seedIfNeeded(container.mainContext)
-        self.container = container
+        if ProcessInfo.processInfo.environment["TALLY_UITEST"] == "1" {
+            // UI-verification mode: fresh in-memory store with demo data.
+            let container = Persistence.makeContainer(inMemory: true)
+            DemoData.seed(container.mainContext)
+            self.container = container
+        } else {
+            let container = Persistence.makeContainer()
+            Seeder.seedIfNeeded(container.mainContext)
+            self.container = container
+        }
     }
 
     var body: some Scene {
@@ -16,6 +23,7 @@ struct TallyApp: App {
             ContentView()
         }
         .modelContainer(container)
+        .defaultSize(width: 1150, height: 780)
         .commands {
             TransactionCommands()
         }

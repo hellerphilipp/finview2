@@ -1,17 +1,20 @@
 import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
-    case dashboard, review, importer, accounts, categories, reports, recurring
+    case dashboard, review, transfers, workExpenses, importer, accounts, categories, reports, currencies, recurring
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .dashboard: "Dashboard"
         case .review: "Review"
+        case .transfers: "Transfers"
+        case .workExpenses: "Work Expenses"
         case .importer: "Import"
         case .accounts: "Accounts"
         case .categories: "Categories"
         case .reports: "Reports"
+        case .currencies: "Currencies"
         case .recurring: "Recurring"
         }
     }
@@ -20,17 +23,24 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .dashboard: "gauge.medium"
         case .review: "tray.full"
+        case .transfers: "arrow.left.arrow.right"
+        case .workExpenses: "briefcase"
         case .importer: "square.and.arrow.down"
         case .accounts: "building.columns"
         case .categories: "tag"
         case .reports: "chart.bar"
+        case .currencies: "globe"
         case .recurring: "repeat"
         }
     }
 }
 
 struct ContentView: View {
-    @State private var selection: SidebarItem? = .dashboard
+    @State private var selection: SidebarItem? = {
+        if let raw = ProcessInfo.processInfo.environment["TALLY_VIEW"],
+           let item = SidebarItem(rawValue: raw) { return item }
+        return .dashboard
+    }()
 
     var body: some View {
         NavigationSplitView {
@@ -50,10 +60,13 @@ struct ContentView: View {
         switch item {
         case .dashboard: DashboardView()
         case .review: ReviewView()
+        case .transfers: TransfersView()
+        case .workExpenses: WorkExpensesView()
         case .importer: ImportView()
         case .accounts: AccountsView()
         case .categories: CategoriesView()
         case .reports: ReportsView()
+        case .currencies: CurrenciesView()
         case .recurring: RecurringView()
         }
     }

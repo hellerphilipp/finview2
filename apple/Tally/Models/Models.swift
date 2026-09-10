@@ -26,6 +26,9 @@ final class Account {
     var colorHex: String = "#4C8BF5"
     var sortOrder: Int = 0
     var createdAt: Date = Date.now
+    /// The account used to post/clear work expenses (line items posted here as
+    /// positive amounts should mirror work-tagged card charges).
+    var isExpenseAccount: Bool = false
 
     var importProfile: ImportProfile?
 

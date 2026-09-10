@@ -82,6 +82,7 @@ struct AccountEditor: View {
     @State private var institution = ""
     @State private var currencyCode = "CHF"
     @State private var colorHex = "#4C8BF5"
+    @State private var isExpenseAccount = false
     @State private var selectedProfileID: PersistentIdentifier?
 
     private let currencies = ["CHF", "EUR", "USD", "GBP"]
@@ -104,6 +105,12 @@ struct AccountEditor: View {
                             Text(profile.name).tag(Optional(profile.persistentModelID))
                         }
                     }
+                }
+                Section {
+                    Toggle("Work expense account", isOn: $isExpenseAccount)
+                } footer: {
+                    Text("Line items posted here (positive amounts) are reconciled against work-tagged card charges.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Color") {
                     HStack(spacing: 10) {
@@ -142,6 +149,7 @@ struct AccountEditor: View {
             institution = account.institution
             currencyCode = account.currencyCode
             colorHex = account.colorHex
+            isExpenseAccount = account.isExpenseAccount
             selectedProfileID = account.importProfile?.persistentModelID
         } else {
             // Default a new account to the Swisscard profile if present.
@@ -157,10 +165,12 @@ struct AccountEditor: View {
             account.institution = institution
             account.currencyCode = currencyCode
             account.colorHex = colorHex
+            account.isExpenseAccount = isExpenseAccount
             account.importProfile = profile
         } else {
             let new = Account(name: name, institution: institution,
                               currencyCode: currencyCode, colorHex: colorHex)
+            new.isExpenseAccount = isExpenseAccount
             new.importProfile = profile
             context.insert(new)
         }
