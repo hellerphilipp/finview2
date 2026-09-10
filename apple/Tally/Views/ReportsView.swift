@@ -7,9 +7,9 @@ enum WorkReportMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .included: "Include Work"
-        case .excluded: "Exclude Work"
-        case .separate: "Work Separate"
+        case .included: "Included"
+        case .excluded: "Excluded"
+        case .separate: "Separate"
         }
     }
 }
@@ -39,12 +39,6 @@ struct ReportsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Picker("Work expenses", selection: $workMode) {
-                    ForEach(WorkReportMode.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
-
                 if monthly.isEmpty {
                     ContentUnavailableView("No Data Yet", systemImage: "chart.bar",
                                            description: Text("Import and categorize transactions to see reports."))
@@ -57,6 +51,21 @@ struct ReportsView: View {
             .padding(20)
         }
         .navigationTitle("Reports")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Picker("Work Expenses", selection: $workMode) {
+                        ForEach(WorkReportMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Label("Filter", systemImage: workMode == .included
+                          ? "line.3.horizontal.decrease.circle"
+                          : "line.3.horizontal.decrease.circle.fill")
+                }
+                .help("Filter work expenses")
+            }
+        }
     }
 
     private var chartSection: some View {
