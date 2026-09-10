@@ -27,8 +27,8 @@ extension FocusedValues {
 
 struct CategoryCell: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: [SortDescriptor(\SpendingCategory.sortOrder)]) private var categories: [SpendingCategory]
     let tx: Transaction
+    let categories: [SpendingCategory]
     let suggestion: SpendingCategory?
 
     var body: some View {
@@ -46,17 +46,23 @@ struct CategoryCell: View {
                 Button("Clear") { tx.category = nil; try? context.save() }
             }
         } label: {
-            if let c = tx.category {
-                Label(c.displayPath, systemImage: c.symbolName).foregroundStyle(Color(hex: c.colorHex))
-            } else if let s = suggestion {
-                Label("\(s.name)?", systemImage: "wand.and.stars")
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Assign…").foregroundStyle(.tertiary)
-            }
+            label
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .menuStyle(.borderlessButton)
-        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        if let c = tx.category {
+            Label(c.displayPath, systemImage: c.symbolName).foregroundStyle(Color(hex: c.colorHex))
+        } else if let s = suggestion {
+            Label("\(s.name)?", systemImage: "wand.and.stars").foregroundStyle(.secondary)
+        } else {
+            Text("Assign…").foregroundStyle(.tertiary)
+        }
     }
 
     private var topLevel: [SpendingCategory] { categories.filter { $0.parent == nil } }

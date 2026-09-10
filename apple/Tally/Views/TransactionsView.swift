@@ -18,6 +18,9 @@ struct TransactionsView: View {
     @State private var selection = Set<UUID>()
     @State private var showingPalette = false
     @State private var showingImport = false
+    /// Cached so they aren't recomputed per row while scrolling.
+    @State private var missingWorkIDs: Set<UUID> = []
+    @State private var suggestions: [UUID: SpendingCategory] = [:]
     @StateObject private var actions = ReviewActions()
 
     private var account: Account? { accounts.first { $0.id == accountID } }
@@ -26,12 +29,6 @@ struct TransactionsView: View {
         allTransactions
             .filter { tx in (accountID == nil || tx.account?.id == accountID) && statusFilter.matches(tx) }
             .sorted(using: sortOrder)
-    }
-
-    /// IDs of work-tagged charges not yet found in the expense account.
-    private var missingWorkIDs: Set<UUID> {
-        Set(ExpenseReconciler.reconcile(transactions: allTransactions, accounts: accounts)
-            .missing.map(\.id))
     }
 
     var body: some View {
@@ -53,8 +50,12 @@ struct TransactionsView: View {
                 router.requestedStatus = nil
             }
             propagateWorkCategories()
+            recomputeMissingWork()
+            recomputeSuggestions()
         }
         .onChange(of: selection) { actions.hasSelection = !selection.isEmpty }
+        .onChange(of: allTransactions) { recomputeMissingWork(); recomputeSuggestions() }
+        .onChange(of: merchants) { recomputeSuggestions() }
         .sheet(isPresented: $showingPalette) {
             CategoryPalette(categories: categories) { assignCategory($0) }
         }
@@ -83,7 +84,10 @@ struct TransactionsView: View {
                     .foregroundStyle(tx.amount < 0 ? Color.primary : Color.green)
             }
             .width(min: 90, ideal: 110)
-            TableColumn("Category", value: \.categorySortKey) { tx in CategoryCell(tx: tx, suggestion: suggestion(for: tx)) }
+            TableColumn("Category", value: \.categorySortKey) { tx in
+                CategoryCell(tx: tx, categories: categories, suggestion: suggestion(for: tx))
+            }
+            .width(min: 150, ideal: 210, max: 320)
             TableColumn("Work") { tx in workCell(tx) }.width(60)
             TableColumn("Status", value: \.statusRaw) { tx in statusBadge(tx) }.width(90)
         }
@@ -166,7 +170,15 @@ struct TransactionsView: View {
 
     private func suggestion(for tx: Transaction) -> SpendingCategory? {
         guard tx.category == nil else { return nil }
-        return AutoTagger.suggest(for: tx.descriptionText, merchants: merchants)
+        return suggestions[tx.id]
+    }
+
+    private func recomputeSuggestions() {
+        var map: [UUID: SpendingCategory] = [:]
+        for tx in allTransactions where tx.category == nil {
+            if let s = AutoTagger.suggest(for: tx.descriptionText, merchants: merchants) { map[tx.id] = s }
+        }
+        suggestions = map
     }
 
     private func selectedTransactions() -> [Transaction] {
@@ -180,6 +192,7 @@ struct TransactionsView: View {
         }
         try? context.save()
         propagateWorkCategories()
+        recomputeSuggestions()
     }
 
     private func acceptSuggestions() {
@@ -188,6 +201,7 @@ struct TransactionsView: View {
         }
         try? context.save()
         propagateWorkCategories()
+        recomputeSuggestions()
     }
 
     /// After categorizing, let matched expense-account line items inherit the
@@ -197,11 +211,18 @@ struct TransactionsView: View {
         ExpenseReconciler.inheritCategories(from: result, in: context)
     }
 
+    /// Recompute the cached set of unmatched work-charge IDs (drives ⚠️).
+    private func recomputeMissingWork() {
+        missingWorkIDs = Set(ExpenseReconciler.reconcile(transactions: allTransactions, accounts: accounts)
+            .missing.map(\.id))
+    }
+
     private func toggleWork() {
         let txs = selectedTransactions()
         let allWork = txs.allSatisfy(\.isWorkExpense)
         txs.forEach { $0.isWorkExpense = !allWork }
         try? context.save()
+        recomputeMissingWork()
     }
 
     private func confirmSelection() { setStatus(.confirmed) }
@@ -211,6 +232,7 @@ struct TransactionsView: View {
         selectedTransactions().forEach { $0.status = status }
         selection.removeAll()
         try? context.save()
+        recomputeMissingWork()
     }
 
     private func wireActions() {
