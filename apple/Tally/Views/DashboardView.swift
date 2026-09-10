@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct DashboardView: View {
+    @Environment(AppRouter.self) private var router
+    @AppStorage("staleDays") private var staleDays = 35
     @Query(sort: [SortDescriptor(\Account.sortOrder), SortDescriptor(\Account.name)])
     private var accounts: [Account]
     @Query private var allTransactions: [Transaction]
@@ -25,12 +27,18 @@ struct DashboardView: View {
 
     private var statRow: some View {
         HStack(spacing: 12) {
-            StatTile(title: "Accounts", value: "\(accounts.count)", systemImage: "building.columns", tint: .blue)
+            StatTile(title: "Accounts", value: "\(accounts.count)", systemImage: "building.columns", tint: .blue) {
+                router.selection = .accounts
+            }
             StatTile(title: "Pending Review", value: "\(pendingCount)", systemImage: "tray.full",
-                     tint: pendingCount > 0 ? .orange : .green)
+                     tint: pendingCount > 0 ? .orange : .green) {
+                router.selection = .review
+            }
             StatTile(title: "Last 30 Days",
                      value: recentSpend.isEmpty ? "—" : Money.string(recentSpend.reduce(Decimal.zero) { $0 + $1.amount }, currency: accounts.first?.currencyCode ?? "CHF"),
-                     systemImage: "creditcard", tint: .purple)
+                     systemImage: "creditcard", tint: .purple) {
+                router.selection = .reports
+            }
         }
     }
 
@@ -42,7 +50,7 @@ struct DashboardView: View {
                     .foregroundStyle(.secondary)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                    ForEach(accounts) { AccountCard(account: $0) }
+                    ForEach(accounts) { AccountCard(account: $0, staleDays: staleDays) }
                 }
             }
         }
@@ -77,24 +85,32 @@ private struct StatTile: View {
     let value: String
     let systemImage: String
     let tint: Color
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline).foregroundStyle(tint)
-            Text(value).font(.title.bold()).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+        Button {
+            action?()
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(title, systemImage: systemImage)
+                    .font(.subheadline).foregroundStyle(tint)
+                Text(value).font(.title.bold()).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+        .buttonStyle(.plain)
     }
 }
 
 private struct AccountCard: View {
     let account: Account
+    var staleDays: Int = 35
 
     private var balance: Decimal { Analytics.balance(of: account) }
-    private var isStale: Bool { Analytics.isStale(account) }
+    private var isStale: Bool { Analytics.isStale(account, days: staleDays) }
     private var lastActivity: Date? { Analytics.lastActivity(of: account) }
 
     var body: some View {

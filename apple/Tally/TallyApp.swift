@@ -27,6 +27,11 @@ struct TallyApp: App {
         .commands {
             TransactionCommands()
         }
+
+        Settings {
+            SettingsView()
+        }
+        .modelContainer(container)
     }
 }
 

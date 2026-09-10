@@ -36,23 +36,21 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
-    @State private var selection: SidebarItem? = {
-        if let raw = ProcessInfo.processInfo.environment["TALLY_VIEW"],
-           let item = SidebarItem(rawValue: raw) { return item }
-        return .dashboard
-    }()
+    @State private var router = AppRouter()
 
     var body: some View {
+        @Bindable var router = router
         NavigationSplitView {
-            List(SidebarItem.allCases, selection: $selection) { item in
+            List(SidebarItem.allCases, selection: $router.selection) { item in
                 Label(item.title, systemImage: item.symbol).tag(item)
             }
             .navigationTitle("Tally")
             .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 260)
         } detail: {
-            detail(for: selection ?? .dashboard)
+            detail(for: router.selection ?? .dashboard)
                 .frame(minWidth: 480, minHeight: 360)
         }
+        .environment(router)
     }
 
     @ViewBuilder
