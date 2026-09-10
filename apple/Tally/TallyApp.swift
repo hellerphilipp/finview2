@@ -26,6 +26,7 @@ struct TallyApp: App {
         .defaultSize(width: 1150, height: 780)
         .commands {
             TransactionCommands()
+            SampleDataCommands(context: container.mainContext)
         }
 
         Settings {
@@ -63,6 +64,18 @@ struct TransactionCommands: Commands {
             Button("Reject") { actions?.reject() }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(actions?.hasSelection != true)
+        }
+    }
+}
+
+/// File-menu commands to load/remove example data for exploring the app.
+struct SampleDataCommands: Commands {
+    let context: ModelContext
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Load Sample Data") { DemoData.seed(context) }
+            Button("Remove Sample Data") { DemoData.removeSamples(context) }
         }
     }
 }

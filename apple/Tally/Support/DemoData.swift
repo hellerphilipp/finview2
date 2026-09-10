@@ -1,20 +1,40 @@
 import Foundation
 import SwiftData
 
-/// Seeds an in-memory store with representative multi-account data. Used only
-/// for UI verification screenshots (activated by `TALLY_UITEST=1`); never runs
-/// in the shipping app.
+/// Seeds representative multi-account example data. Used both for UI
+/// verification screenshots (`TALLY_UITEST=1`) and for the in-app
+/// "Load Sample Data" command. All accounts are prefixed "Sample " so they're
+/// easy to spot and remove; safe to call repeatedly (no-ops if already loaded).
 enum DemoData {
+    static let samplePrefix = "Sample "
+
+    @MainActor
+    static func isLoaded(_ ctx: ModelContext) -> Bool {
+        let accounts = (try? ctx.fetch(FetchDescriptor<Account>())) ?? []
+        return accounts.contains { $0.name.hasPrefix(samplePrefix) }
+    }
+
+    /// Remove all sample accounts (cascades to their transactions/batches).
+    @MainActor
+    static func removeSamples(_ ctx: ModelContext) {
+        let accounts = (try? ctx.fetch(FetchDescriptor<Account>())) ?? []
+        for account in accounts where account.name.hasPrefix(samplePrefix) {
+            ctx.delete(account)
+        }
+        try? ctx.save()
+    }
+
     @MainActor
     static func seed(_ ctx: ModelContext) {
         Seeder.seedIfNeeded(ctx)
+        guard !isLoaded(ctx) else { return }   // already loaded
         let cats = (try? ctx.fetch(FetchDescriptor<SpendingCategory>())) ?? []
         func cat(_ name: String) -> SpendingCategory? { cats.first { $0.name == name } }
 
-        let current = Account(name: "Current", institution: "PostFinance", currencyCode: "CHF", colorHex: "#4C8BF5")
-        let savings = Account(name: "Savings", institution: "PostFinance", currencyCode: "CHF", colorHex: "#34C759")
-        let amex = Account(name: "AMEX", institution: "Swisscard", currencyCode: "CHF", colorHex: "#FF9500")
-        let expenses = Account(name: "Expenses", institution: "Work", currencyCode: "CHF", colorHex: "#AF52DE")
+        let current = Account(name: "Sample Current", institution: "PostFinance", currencyCode: "CHF", colorHex: "#4C8BF5")
+        let savings = Account(name: "Sample Savings", institution: "PostFinance", currencyCode: "CHF", colorHex: "#34C759")
+        let amex = Account(name: "Sample AMEX", institution: "Swisscard", currencyCode: "CHF", colorHex: "#FF9500")
+        let expenses = Account(name: "Sample Expenses", institution: "Work", currencyCode: "CHF", colorHex: "#AF52DE")
         expenses.isExpenseAccount = true
         [current, savings, amex, expenses].forEach { ctx.insert($0) }
 
