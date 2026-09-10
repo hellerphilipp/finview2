@@ -74,16 +74,15 @@ struct TransactionsView: View {
 
     private var table: some View {
         Table(transactions, selection: $selection, sortOrder: $sortOrder) {
-            TableColumn("Date", value: \.date) { Text(DateText.string($0.date)) }
-                .width(min: 90, ideal: 100)
+            TableColumn("Date", value: \.date) { tx in
+                Text(DateText.string(tx.date))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .width(min: 96, ideal: 104)
             TableColumn("Account", value: \.accountName) { Text($0.account?.name ?? "—") }
             TableColumn("Description", value: \.descriptionText) { Text($0.descriptionText).lineLimit(1) }
-            TableColumn("Amount", value: \.amount) { tx in
-                Text(Money.string(tx.amount, currency: tx.account?.currencyCode ?? ""))
-                    .monospacedDigit()
-                    .foregroundStyle(tx.amount < 0 ? Color.primary : Color.green)
-            }
-            .width(min: 90, ideal: 110)
+            TableColumn("Amount", value: \.amount) { tx in amountCell(tx) }
+                .width(min: 120, ideal: 140)
             TableColumn("Category", value: \.categorySortKey) { tx in
                 CategoryCell(tx: tx, categories: categories, suggestion: suggestion(for: tx))
             }
@@ -98,6 +97,18 @@ struct TransactionsView: View {
             Button("Confirm") { confirmSelection() }
             Button("Reject", role: .destructive) { rejectSelection() }
         }
+    }
+
+    /// Currency code pinned left, number right-aligned, flexible gap between.
+    private func amountCell(_ tx: Transaction) -> some View {
+        HStack(spacing: 8) {
+            Text(tx.account?.currencyCode ?? "").foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(Money.amount(tx.amount))
+                .monospacedDigit()
+                .foregroundStyle(tx.amount < 0 ? Color.primary : Color.green)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func workCell(_ tx: Transaction) -> some View {
@@ -169,7 +180,8 @@ struct TransactionsView: View {
     // MARK: Suggestions + actions
 
     private func suggestion(for tx: Transaction) -> SpendingCategory? {
-        guard tx.category == nil else { return nil }
+        // Only surface the "?" suggestion while a transaction still needs review.
+        guard tx.category == nil, tx.status == .pending else { return nil }
         return suggestions[tx.id]
     }
 
@@ -225,7 +237,19 @@ struct TransactionsView: View {
         recomputeMissingWork()
     }
 
-    private func confirmSelection() { setStatus(.confirmed) }
+    private func confirmSelection() {
+        // Confirming with an accepted suggestion applies it — the user has
+        // verified the auto-tag, so it becomes a real category (no more wand/?).
+        for tx in selectedTransactions() where tx.category == nil {
+            if let s = suggestions[tx.id] {
+                tx.category = s
+                AutoTagger.learn(description: tx.descriptionText, category: s, in: context)
+            }
+        }
+        setStatus(.confirmed)
+        recomputeSuggestions()
+        propagateWorkCategories()
+    }
     private func rejectSelection() { setStatus(.rejected) }
 
     private func setStatus(_ status: TransactionStatus) {

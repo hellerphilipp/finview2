@@ -10,6 +10,21 @@ enum Money {
         f.locale = Locale(identifier: "de_CH")
         return f.string(from: value as NSDecimalNumber) ?? "\(value) \(currency)"
     }
+
+    /// The grouped number only, no currency symbol (e.g. "-2'000.00").
+    /// Use with a separate currency label for right-aligned ledger columns.
+    static func amount(_ value: Decimal) -> String {
+        amountFormatter.string(from: value as NSDecimalNumber) ?? "\(value)"
+    }
+
+    private static let amountFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.locale = Locale(identifier: "de_CH")
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }()
 }
 
 enum DateText {
