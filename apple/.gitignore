@@ -1,0 +1,14 @@
+# Generated Xcode project (regenerate with `xcodegen generate`)
+Tally.xcodeproj/
+
+# Build output
+build/
+DerivedData/
+.build/
+
+# SwiftPM
+ImportKit/.build/
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/

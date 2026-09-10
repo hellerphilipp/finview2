@@ -1,0 +1,65 @@
+name: Tally
+options:
+  bundleIdPrefix: com.hellerweb
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: YES
+    # Local dev: ad-hoc sign so the .app launches without a Developer team.
+    # A real team + iCloud entitlement are added later to enable CloudKit sync.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGNING_ALLOWED: YES
+    CODE_SIGNING_REQUIRED: NO
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  ImportKit:
+    path: ImportKit
+
+targets:
+  Tally:
+    type: application
+    platform: macOS
+    sources:
+      - Tally
+    dependencies:
+      - package: ImportKit
+    settings:
+      base:
+        PRODUCT_NAME: Tally
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.finance"
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Philipp Heller"
+
+  # Non-hosted unit tests: compile the model/logic sources directly and run
+  # without launching the app. Keeps SwiftData tests fast and reliable
+  # (app-hosted xctest + SwiftData is crash-prone).
+  TallyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - TallyTests
+      - path: Tally/Models
+      - path: Tally/Services
+    dependencies:
+      - package: ImportKit
+
+schemes:
+  Tally:
+    build:
+      targets:
+        Tally: all
+        TallyTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TallyTests
