@@ -74,4 +74,39 @@ struct AnalyticsTests {
         #expect(monthly.count == 2)
         #expect(monthly.first?.amount == Decimal(string: "30"))   // Jan total
     }
+
+    @Test func openingBalanceCountsInBalanceButNotSpending() throws {
+        let a = account()
+        let opening = Transaction(date: day(2025, 1, 1), descriptionText: "Starting balance",
+                                  amount: Decimal(string: "1000")!, originalAmount: Decimal(string: "1000")!,
+                                  originalCurrency: "CHF", status: .confirmed)
+        opening.isOpeningBalance = true
+        opening.account = a
+        ctx.insert(opening)
+        tx(a, "-40.00", day(2025, 1, 5))
+        try ctx.save()
+
+        #expect(Analytics.balance(of: a) == Decimal(string: "960"))         // 1000 − 40
+        #expect(Analytics.spending(a.txs, since: day(2025, 1, 1)) == Decimal(string: "40"))
+    }
+
+    @Test func workGroupingExcludeAndSeparate() throws {
+        let a = account()
+        let dining = SpendingCategory(name: "Dining")
+        ctx.insert(dining)
+        let work = Transaction(date: day(2025, 1, 5), descriptionText: "work",
+                               amount: Decimal(string: "-50")!, originalAmount: Decimal(string: "-50")!,
+                               originalCurrency: "CHF")
+        work.account = a; work.category = dining; work.isWorkExpense = true
+        ctx.insert(work)
+        tx(a, "-30.00", day(2025, 1, 6), category: dining)
+        try ctx.save()
+
+        let excluded = Analytics.spendingByCategory(a.txs) { $0.isWorkExpense ? nil : Analytics.defaultCategoryName($0) }
+        #expect(excluded.first { $0.name == "Dining" }?.amount == Decimal(string: "30"))
+
+        let separate = Analytics.spendingByCategory(a.txs) { $0.isWorkExpense ? "Work" : Analytics.defaultCategoryName($0) }
+        #expect(separate.first { $0.name == "Work" }?.amount == Decimal(string: "50"))
+        #expect(separate.first { $0.name == "Dining" }?.amount == Decimal(string: "30"))
+    }
 }

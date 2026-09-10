@@ -15,9 +15,15 @@ enum Analytics {
         tx.transferGroupID != nil || tx.category?.kind == .transfer
     }
 
-    /// Transactions that count as real spending/income (active, non-transfer).
+    /// Transactions that count as real spending/income (active, non-transfer,
+    /// excluding synthetic opening-balance entries).
     static func spendable(_ txs: [Transaction]) -> [Transaction] {
-        active(txs).filter { !isTransfer($0) }
+        active(txs).filter { !isTransfer($0) && !$0.isOpeningBalance }
+    }
+
+    /// Default report bucket for a transaction: its top-level category name.
+    static func defaultCategoryName(_ tx: Transaction) -> String {
+        topLevelName(tx.category)
     }
 
     /// Account balance = sum of active transaction amounts (spend is negative).
@@ -46,12 +52,14 @@ enum Analytics {
             .reduce(Decimal.zero) { $0 - $1.amount }
     }
 
-    /// Spending grouped by top-level category name (positive amounts).
-    static func spendingByCategory(_ txs: [Transaction], since: Date? = nil) -> [(name: String, amount: Decimal)] {
+    /// Spending grouped by bucket name (positive amounts). `classify` returns a
+    /// bucket name, or nil to exclude a transaction (e.g. filtering work items).
+    static func spendingByCategory(_ txs: [Transaction], since: Date? = nil,
+                                   classify: (Transaction) -> String? = defaultCategoryName) -> [(name: String, amount: Decimal)] {
         var totals: [String: Decimal] = [:]
         for tx in spendable(txs) where tx.amount < 0 {
             if let since, tx.date < since { continue }
-            let name = topLevelName(tx.category)
+            guard let name = classify(tx) else { continue }
             totals[name, default: .zero] += -tx.amount
         }
         return totals.map { (name: $0.key, amount: $0.value) }
@@ -67,12 +75,14 @@ enum Analytics {
     }
 
     static func monthlyCategorySpending(_ txs: [Transaction],
-                                        calendar: Calendar = .current) -> [MonthlyCategorySpend] {
+                                        calendar: Calendar = .current,
+                                        classify: (Transaction) -> String? = defaultCategoryName) -> [MonthlyCategorySpend] {
         var totals: [Date: [String: Decimal]] = [:]
         for tx in spendable(txs) where tx.amount < 0 {
+            guard let name = classify(tx) else { continue }
             let comps = calendar.dateComponents([.year, .month], from: tx.date)
             guard let month = calendar.date(from: comps) else { continue }
-            totals[month, default: [:]][topLevelName(tx.category), default: .zero] += -tx.amount
+            totals[month, default: [:]][name, default: .zero] += -tx.amount
         }
         return totals.flatMap { month, cats in
             cats.map { MonthlyCategorySpend(month: month, category: $0.key, amount: $0.value) }

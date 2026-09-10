@@ -19,7 +19,7 @@ enum TransferMatcher {
     /// Same currency + equal magnitude + different accounts + within `maxDayGap`.
     static func candidates(_ txs: [Transaction], maxDayGap: Int = 3,
                            calendar: Calendar = .current) -> [Candidate] {
-        let eligible = txs.filter { $0.status != .rejected && $0.transferGroupID == nil }
+        let eligible = txs.filter { $0.status != .rejected && $0.transferGroupID == nil && !$0.isOpeningBalance }
         let outgoings = eligible.filter { $0.amount < 0 }
         let incomings = eligible.filter { $0.amount > 0 }
 

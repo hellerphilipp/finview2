@@ -83,6 +83,7 @@ struct AccountEditor: View {
     @State private var currencyCode = "CHF"
     @State private var colorHex = "#4C8BF5"
     @State private var isExpenseAccount = false
+    @State private var startingBalance = ""
     @State private var selectedProfileID: PersistentIdentifier?
 
     private let currencies = ["CHF", "EUR", "USD", "GBP"]
@@ -97,6 +98,8 @@ struct AccountEditor: View {
                     Picker("Currency", selection: $currencyCode) {
                         ForEach(currencyList, id: \.self) { Text($0).tag($0) }
                     }
+                    TextField("Starting balance (optional)", text: $startingBalance)
+                        .help("Seeds the account balance via a 'Starting balance' entry.")
                 }
                 Section("Import Profile") {
                     Picker("Profile", selection: $selectedProfileID) {
@@ -150,6 +153,9 @@ struct AccountEditor: View {
             currencyCode = account.currencyCode
             colorHex = account.colorHex
             isExpenseAccount = account.isExpenseAccount
+            if let opening = account.txs.first(where: { $0.isOpeningBalance }) {
+                startingBalance = NSDecimalNumber(decimal: opening.amount).stringValue
+            }
             selectedProfileID = account.importProfile?.persistentModelID
         } else {
             // Default a new account to the Swisscard profile if present.
@@ -160,6 +166,7 @@ struct AccountEditor: View {
 
     private func save() {
         let profile = profiles.first { $0.persistentModelID == selectedProfileID }
+        let target: Account
         if let account {
             account.name = name
             account.institution = institution
@@ -167,14 +174,42 @@ struct AccountEditor: View {
             account.colorHex = colorHex
             account.isExpenseAccount = isExpenseAccount
             account.importProfile = profile
+            target = account
         } else {
             let new = Account(name: name, institution: institution,
                               currencyCode: currencyCode, colorHex: colorHex)
             new.isExpenseAccount = isExpenseAccount
             new.importProfile = profile
             context.insert(new)
+            target = new
         }
+        upsertOpeningBalance(for: target)
         try? context.save()
         dismiss()
+    }
+
+    /// Create/update/remove the account's synthetic "Starting balance" entry.
+    private func upsertOpeningBalance(for account: Account) {
+        let trimmed = startingBalance.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        let value = trimmed.isEmpty ? nil : Decimal(string: trimmed)
+        let existing = account.txs.first { $0.isOpeningBalance }
+
+        guard let value, value != 0 else {
+            if let existing { context.delete(existing) }
+            return
+        }
+        if let existing {
+            existing.amount = value
+            existing.originalAmount = value
+            existing.originalCurrency = account.currencyCode
+        } else {
+            let opening = Transaction(date: account.createdAt, descriptionText: "Starting balance",
+                                      rawDescription: "Starting balance", amount: value,
+                                      originalAmount: value, originalCurrency: account.currencyCode,
+                                      status: .confirmed)
+            opening.isOpeningBalance = true
+            opening.account = account
+            context.insert(opening)
+        }
     }
 }

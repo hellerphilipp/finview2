@@ -76,4 +76,30 @@ struct ExpenseReconcilerTests {
         #expect(r.matchedCount == 1)
         #expect(r.missing.count == 1)
     }
+
+    @Test func matchedLineItemInheritsChargeCategory() throws {
+        let card = account("Card")
+        _ = account("Expenses", expense: true)
+        let dining = SpendingCategory(name: "Dining")
+        ctx.insert(dining)
+
+        let charge = tx(card, "-88.00", daysAgo: 10, work: true)
+        charge.category = dining
+        let expenseAccount = try ctx.fetch(FetchDescriptor<Account>()).first { $0.isExpenseAccount }!
+        let line = Transaction(descriptionText: "reimb", amount: Decimal(string: "88.00")!,
+                               originalAmount: Decimal(string: "88.00")!, originalCurrency: "CHF")
+        line.account = expenseAccount
+        ctx.insert(line)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<Transaction>())
+        let accounts = try ctx.fetch(FetchDescriptor<Account>())
+        let r = ExpenseReconciler.reconcile(transactions: all, accounts: accounts)
+        #expect(r.matched.count == 1)
+        #expect(line.category == nil)
+
+        let updated = ExpenseReconciler.inheritCategories(from: r, in: ctx)
+        #expect(updated == 1)
+        #expect(line.category?.name == "Dining")
+    }
 }

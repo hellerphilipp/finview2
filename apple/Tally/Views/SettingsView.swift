@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("staleDays") private var staleDays = 35
     @AppStorage("defaultCurrency") private var defaultCurrency = "CHF"
+    @AppStorage("showUnreviewedBadges") private var showUnreviewedBadges = true
 
     var body: some View {
         TabView {
@@ -15,10 +16,13 @@ struct SettingsView: View {
                         ForEach(["CHF", "EUR", "USD", "GBP"], id: \.self) { Text($0).tag($0) }
                     }
                 }
+                Section("Sidebar") {
+                    Toggle("Show count for unreviewed items", isOn: $showUnreviewedBadges)
+                }
             }
             .formStyle(.grouped)
             .tabItem { Label("General", systemImage: "gearshape") }
         }
-        .frame(width: 460, height: 240)
+        .frame(width: 460, height: 280)
     }
 }

@@ -12,12 +12,16 @@ struct DashboardView: View {
     private var recentSpend: [(name: String, amount: Decimal)] {
         Analytics.spendingByCategory(allTransactions, since: Calendar.current.date(byAdding: .day, value: -30, to: .now))
     }
+    private var workResult: ExpenseReconciler.Result {
+        ExpenseReconciler.reconcile(transactions: allTransactions, accounts: accounts)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 statRow
                 accountsSection
+                workExpensesSection
                 recentSpendingSection
             }
             .padding(20)
@@ -32,7 +36,8 @@ struct DashboardView: View {
             }
             StatTile(title: "Pending Review", value: "\(pendingCount)", systemImage: "tray.full",
                      tint: pendingCount > 0 ? .orange : .green) {
-                router.selection = .review
+                router.requestedStatus = .toReview
+                router.selection = .transactionsAll
             }
             StatTile(title: "Last 30 Days",
                      value: recentSpend.isEmpty ? "—" : Money.string(recentSpend.reduce(Decimal.zero) { $0 + $1.amount }, currency: accounts.first?.currencyCode ?? "CHF"),
@@ -51,6 +56,42 @@ struct DashboardView: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
                     ForEach(accounts) { AccountCard(account: $0, staleDays: staleDays) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workExpensesSection: some View {
+        if let expenseName = workResult.expenseAccount?.name, !workResult.missing.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Work Expenses").font(.title3.bold())
+                    Spacer()
+                    Button {
+                        router.selection = .transactionsAll
+                    } label: {
+                        Label("\(workResult.missing.count) unclaimed · \(Money.string(workResult.missingTotal, currency: workResult.expenseAccount?.currencyCode ?? "CHF"))",
+                              systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange).font(.callout)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Text("Work-tagged charges not yet posted to \(expenseName).")
+                    .font(.caption).foregroundStyle(.secondary)
+                VStack(spacing: 6) {
+                    ForEach(Array(workResult.missing.prefix(5))) { tx in
+                        HStack {
+                            Text(DateText.string(tx.date)).foregroundStyle(.secondary)
+                                .frame(width: 100, alignment: .leading)
+                            Text(tx.descriptionText).lineLimit(1)
+                            Spacer()
+                            Text(Money.string(tx.amount, currency: tx.account?.currencyCode ?? ""))
+                                .monospacedDigit().foregroundStyle(.orange)
+                        }
+                        .padding(.vertical, 2)
+                        Divider()
+                    }
                 }
             }
         }

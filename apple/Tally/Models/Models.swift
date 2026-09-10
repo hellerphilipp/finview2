@@ -71,6 +71,8 @@ final class Transaction {
     var importedAt: Date = Date.now
     var fingerprint: String = ""
     var transferGroupID: UUID?                        // reserved for matching (M2)
+    /// A synthetic "Starting balance" entry seeding an account's balance.
+    var isOpeningBalance: Bool = false
 
     var account: Account?
     var category: SpendingCategory?
@@ -105,6 +107,10 @@ final class Transaction {
         guard let acc = account else { return false }
         return !originalCurrency.isEmpty && originalCurrency != acc.currencyCode
     }
+
+    // Non-Comparable-optional helpers so SwiftUI `Table` columns can sort.
+    var accountName: String { account?.name ?? "" }
+    var categorySortKey: String { category?.displayPath ?? "" }
 }
 
 // MARK: - SpendingCategory (one level of subcategories via self-relationship)

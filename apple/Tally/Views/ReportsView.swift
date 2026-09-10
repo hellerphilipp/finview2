@@ -2,11 +2,32 @@ import SwiftUI
 import SwiftData
 import Charts
 
+enum WorkReportMode: String, CaseIterable, Identifiable {
+    case included, excluded, separate
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .included: "Include Work"
+        case .excluded: "Exclude Work"
+        case .separate: "Work Separate"
+        }
+    }
+}
+
 struct ReportsView: View {
     @Query private var transactions: [Transaction]
+    @State private var workMode: WorkReportMode = .included
+
+    private func classify(_ tx: Transaction) -> String? {
+        switch workMode {
+        case .included: Analytics.defaultCategoryName(tx)
+        case .excluded: tx.isWorkExpense ? nil : Analytics.defaultCategoryName(tx)
+        case .separate: tx.isWorkExpense ? "Work" : Analytics.defaultCategoryName(tx)
+        }
+    }
 
     private var monthly: [Analytics.MonthlyCategorySpend] {
-        Analytics.monthlyCategorySpending(transactions)
+        Analytics.monthlyCategorySpending(transactions, classify: classify)
     }
     private var months: [Date] {
         Array(Set(monthly.map(\.month))).sorted()
@@ -18,6 +39,12 @@ struct ReportsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                Picker("Work expenses", selection: $workMode) {
+                    ForEach(WorkReportMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+
                 if monthly.isEmpty {
                     ContentUnavailableView("No Data Yet", systemImage: "chart.bar",
                                            description: Text("Import and categorize transactions to see reports."))
