@@ -3,10 +3,10 @@ import SQLite3
 
 /// Exports accounts + transactions to portable formats.
 ///
-/// The SQLite export mirrors the `statement-importer` Python schema
-/// (`accounts` / `transactions` base columns) so the file round-trips with that
-/// tool, and adds extra columns for Tally-specific data (category, work flag,
-/// transfer group, opening balance, note) so nothing is lost.
+/// The `.tallydb` export is a plain SQLite database using Tally's own schema:
+/// two readable tables (`accounts`, `transactions`) keyed by the models' UUIDs,
+/// with all Tally fields (category, work flag, transfer group, opening balance,
+/// note). Openable by any SQLite tool, and re-importable without id collisions.
 enum ExportService {
 
     // MARK: CSV
@@ -58,29 +58,29 @@ enum ExportService {
 
         try exec(db, """
             CREATE TABLE accounts (
-              id INTEGER PRIMARY KEY,
+              id TEXT PRIMARY KEY,
               name TEXT NOT NULL,
-              currency TEXT NOT NULL,
-              mapping_spec TEXT,
               institution TEXT,
+              currency TEXT NOT NULL,
               color_hex TEXT,
-              is_expense_account INTEGER NOT NULL DEFAULT 0
+              is_expense_account INTEGER NOT NULL DEFAULT 0,
+              import_profile TEXT
             );
             CREATE TABLE transactions (
-              id INTEGER PRIMARY KEY,
-              account_id INTEGER NOT NULL,
-              timestamp TEXT NOT NULL,
+              id TEXT PRIMARY KEY,
+              account_id TEXT NOT NULL,
+              date TEXT NOT NULL,
               description TEXT NOT NULL,
               amount NUMERIC NOT NULL,
               original_amount NUMERIC NOT NULL,
               original_currency TEXT NOT NULL,
               status TEXT NOT NULL,
-              imported_at TEXT,
-              source_file TEXT,
               category TEXT,
               is_work_expense INTEGER NOT NULL DEFAULT 0,
               is_opening_balance INTEGER NOT NULL DEFAULT 0,
               transfer_group_id TEXT,
+              source_file TEXT,
+              imported_at TEXT,
               note TEXT,
               FOREIGN KEY(account_id) REFERENCES accounts(id)
             );
@@ -88,50 +88,44 @@ enum ExportService {
 
         try exec(db, "BEGIN TRANSACTION;")
 
-        // Stable 1-based integer ids for FK compatibility.
-        var accountID: [UUID: Int] = [:]
-        let accountSQL = "INSERT INTO accounts (id, name, currency, mapping_spec, institution, color_hex, is_expense_account) VALUES (?,?,?,?,?,?,?);"
-        let accountStmt = try prepare(db, accountSQL)
-        for (index, account) in accounts.enumerated() {
-            let rowID = index + 1
-            accountID[account.id] = rowID
+        let accountStmt = try prepare(db, "INSERT INTO accounts (id, name, institution, currency, color_hex, is_expense_account, import_profile) VALUES (?,?,?,?,?,?,?);")
+        for account in accounts {
             sqlite3_reset(accountStmt)
-            bindInt(accountStmt, 1, rowID)
+            bindText(accountStmt, 1, account.id.uuidString)
             bindText(accountStmt, 2, account.name)
-            bindText(accountStmt, 3, account.currencyCode)
-            bindText(accountStmt, 4, account.importProfile?.name)
-            bindText(accountStmt, 5, account.institution)
-            bindText(accountStmt, 6, account.colorHex)
-            bindInt(accountStmt, 7, account.isExpenseAccount ? 1 : 0)
+            bindText(accountStmt, 3, account.institution)
+            bindText(accountStmt, 4, account.currencyCode)
+            bindText(accountStmt, 5, account.colorHex)
+            bindInt(accountStmt, 6, account.isExpenseAccount ? 1 : 0)
+            bindText(accountStmt, 7, account.importProfile?.name)
             try step(db, accountStmt)
         }
         sqlite3_finalize(accountStmt)
 
-        let txSQL = """
+        let txStmt = try prepare(db, """
             INSERT INTO transactions
-            (id, account_id, timestamp, description, amount, original_amount, original_currency,
-             status, imported_at, source_file, category, is_work_expense, is_opening_balance,
-             transfer_group_id, note)
+            (id, account_id, date, description, amount, original_amount, original_currency,
+             status, category, is_work_expense, is_opening_balance, transfer_group_id,
+             source_file, imported_at, note)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
-            """
-        let txStmt = try prepare(db, txSQL)
-        for (index, tx) in transactions.enumerated() {
-            guard let accID = tx.account.flatMap({ accountID[$0.id] }) else { continue }
+            """)
+        for tx in transactions {
+            guard let accountUUID = tx.account?.id.uuidString else { continue }
             sqlite3_reset(txStmt)
-            bindInt(txStmt, 1, index + 1)
-            bindInt(txStmt, 2, accID)
+            bindText(txStmt, 1, tx.id.uuidString)
+            bindText(txStmt, 2, accountUUID)
             bindText(txStmt, 3, dateTime.string(from: tx.date))
             bindText(txStmt, 4, tx.descriptionText)
             bindText(txStmt, 5, NSDecimalNumber(decimal: tx.amount).stringValue)
             bindText(txStmt, 6, NSDecimalNumber(decimal: tx.originalAmount).stringValue)
             bindText(txStmt, 7, tx.originalCurrency)
             bindText(txStmt, 8, tx.status.rawValue)
-            bindText(txStmt, 9, dateTime.string(from: tx.importedAt))
-            bindText(txStmt, 10, tx.sourceFile)
-            bindText(txStmt, 11, tx.category?.displayPath)
-            bindInt(txStmt, 12, tx.isWorkExpense ? 1 : 0)
-            bindInt(txStmt, 13, tx.isOpeningBalance ? 1 : 0)
-            bindText(txStmt, 14, tx.transferGroupID?.uuidString)
+            bindText(txStmt, 9, tx.category?.displayPath)
+            bindInt(txStmt, 10, tx.isWorkExpense ? 1 : 0)
+            bindInt(txStmt, 11, tx.isOpeningBalance ? 1 : 0)
+            bindText(txStmt, 12, tx.transferGroupID?.uuidString)
+            bindText(txStmt, 13, tx.sourceFile)
+            bindText(txStmt, 14, dateTime.string(from: tx.importedAt))
             bindText(txStmt, 15, tx.note)
             try step(db, txStmt)
         }

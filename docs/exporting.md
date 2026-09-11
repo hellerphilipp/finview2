@@ -2,15 +2,20 @@
 
 ## Export a database (File → Export Database…, ⇧⌘E)
 
-Exports **all** accounts and transactions to a portable **SQLite** `.sqlite`
-file via a standard save panel. The file is a real local database you can open
+Exports **all** accounts and transactions to a portable **`.tallydb`** file via a
+standard save panel. A `.tallydb` file is a plain **SQLite** database you can open
 with the `sqlite3` CLI, DB Browser for SQLite, or any SQLite tool.
 
-The schema mirrors the `statement-importer` Python project's `accounts` and
-`transactions` tables (so the file round-trips with that tool) and adds extra
-columns for Tally-specific data — `institution`, `color_hex`,
-`is_expense_account`, `category`, `is_work_expense`, `is_opening_balance`,
-`transfer_group_id`, `note` — so nothing is lost.
+It uses Tally's own schema — two readable tables keyed by the app's UUIDs:
+
+- **accounts**: `id`, `name`, `institution`, `currency`, `color_hex`,
+  `is_expense_account`, `import_profile`.
+- **transactions**: `id`, `account_id`, `date`, `description`, `amount`,
+  `original_amount`, `original_currency`, `status`, `category`, `is_work_expense`,
+  `is_opening_balance`, `transfer_group_id`, `source_file`, `imported_at`, `note`.
+
+Because the real UUIDs are preserved, the file can be re-imported later without id
+collisions.
 
 ## Drag rows out as CSV
 

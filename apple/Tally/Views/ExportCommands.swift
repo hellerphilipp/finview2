@@ -18,9 +18,9 @@ struct ExportCommands: Commands {
     private func export() {
         let panel = NSSavePanel()
         panel.title = "Export Database"
-        panel.nameFieldStringValue = "Tally Export.sqlite"
+        panel.nameFieldStringValue = "Tally Export.tallydb"
         panel.canCreateDirectories = true
-        if let type = UTType(filenameExtension: "sqlite") { panel.allowedContentTypes = [type] }
+        if let type = UTType(filenameExtension: "tallydb") { panel.allowedContentTypes = [type] }
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
