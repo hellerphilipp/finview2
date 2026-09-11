@@ -21,6 +21,7 @@ website-ready overview of what the app does.
 | Reports (charts, pivot, work grouping) | [reports.md](reports.md) |
 | Recurring transaction detection | [recurring.md](recurring.md) |
 | Dashboard, settings & data | [dashboard-settings-data.md](dashboard-settings-data.md) |
+| Exporting (SQLite database, CSV drag-out) | [exporting.md](exporting.md) |
 
 ## At a glance
 

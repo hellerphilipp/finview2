@@ -27,6 +27,7 @@ struct TallyApp: App {
         .commands {
             TransactionCommands()
             SampleDataCommands(context: container.mainContext)
+            ExportCommands(context: container.mainContext)
         }
 
         Settings {

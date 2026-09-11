@@ -1,5 +1,15 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+
+/// CSV payload for dragging transaction rows out to Finder/Numbers/Mail.
+struct TransactionsCSV: Transferable {
+    let csv: String
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .commaSeparatedText) { Data($0.csv.utf8) }
+        ProxyRepresentation(exporting: \.csv)
+    }
+}
 
 struct TransactionsView: View {
     @Environment(\.modelContext) private var context
@@ -73,7 +83,7 @@ struct TransactionsView: View {
     }
 
     private var table: some View {
-        Table(transactions, selection: $selection, sortOrder: $sortOrder) {
+        Table(of: Transaction.self, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("Date", value: \.date) { tx in
                 Text(DateText.string(tx.date))
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -89,6 +99,11 @@ struct TransactionsView: View {
             .width(min: 150, ideal: 210, max: 320)
             TableColumn("Work") { tx in workCell(tx) }.width(60)
             TableColumn("Status", value: \.statusRaw) { tx in statusBadge(tx) }.width(90)
+        } rows: {
+            ForEach(transactions) { tx in
+                TableRow(tx)
+                    .draggable(TransactionsCSV(csv: ExportService.csv(for: [tx])))
+            }
         }
         .contextMenu(forSelectionType: UUID.self) { _ in
             Button("Assign Category…") { showingPalette = true }
