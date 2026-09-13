@@ -64,8 +64,9 @@ struct TransferMatcherTests {
         TransferMatcher.confirm(candidate, in: ctx)
 
         all = try ctx.fetch(FetchDescriptor<Transaction>())
-        #expect(all.allSatisfy { $0.transferGroupID != nil })
-        #expect(out.status == .confirmed)
+        #expect(all.allSatisfy { $0.linkGroupID != nil })
+        // Linking groups the legs but doesn't auto-review them.
+        #expect(out.status == .pending)
         // The −2000 outgoing must not count as spending anymore.
         #expect(Analytics.spending(all, since: date(2025, 1, 1)) == .zero)
         // No further candidates once grouped.
@@ -85,8 +86,8 @@ struct TransferMatcherTests {
         TransferMatcher.link([out, inc], in: ctx)
 
         let all = try ctx.fetch(FetchDescriptor<Transaction>())
-        #expect(all.allSatisfy { $0.transferGroupID != nil })
-        #expect(out.status == .confirmed && inc.status == .confirmed)
+        #expect(all.allSatisfy { $0.linkGroupID != nil })
+        #expect(out.status == .pending && inc.status == .pending)   // linking doesn't auto-review
         #expect(Analytics.spending(all, since: date(2025, 1, 1)) == .zero)
     }
 
@@ -122,16 +123,14 @@ struct TransferMatcherTests {
         TransferMatcher.confirm(candidate, in: ctx)
 
         all = try ctx.fetch(FetchDescriptor<Transaction>())
-        let gid = try #require(all.first?.transferGroupID)
+        let gid = try #require(all.first?.linkGroupID)
         TransferMatcher.unlink(groupID: gid, in: all, context: ctx)
 
         all = try ctx.fetch(FetchDescriptor<Transaction>())
-        #expect(all.allSatisfy { $0.transferGroupID == nil })
-        // Linking confirmed the legs, so they're no longer *pending* — the
-        // suggester leaves reviewed transactions alone until re-opened.
-        #expect(TransferMatcher.candidates(all).isEmpty)
-        all.forEach { $0.status = .pending }
-        #expect(TransferMatcher.candidates(all).count == 1)     // matchable again once pending
+        #expect(all.allSatisfy { $0.linkGroupID == nil })
+        // Linking no longer confirms, so the still-pending legs are matchable
+        // again as soon as the group is removed.
+        #expect(TransferMatcher.candidates(all).count == 1)
     }
 
     @Test func suggestsOnlyPendingLegs() throws {

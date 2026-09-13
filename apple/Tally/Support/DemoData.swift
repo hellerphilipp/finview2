@@ -78,6 +78,11 @@ enum DemoData {
         add(amex, "Client lunch (Bistro Central)", "-45.00", daysAgo: 9, category: cat("Restaurants"), work: true)   // not expensed
         add(current, "Taxi to client (Uber)", "-32.50", daysAgo: 7, category: cat("Taxi"), work: true)               // not expensed
 
+        // A partially-refunded online order: a −250 charge and a later +50 refund
+        // on the same card, ready to select-and-"Link as Refund" (nets to 200).
+        add(amex, "Zalando order (Zalando)", "-250.00", daysAgo: 22, category: cat("Clothing"))
+        add(amex, "Zalando refund (Zalando)", "50.00", daysAgo: 8, category: cat("Clothing"))
+
         // A couple pending, uncategorized items to review.
         add(amex, "Denner (Denner)", "-31.20", daysAgo: 2, status: .pending)
         add(current, "Apotheke (Amavita)", "-18.60", daysAgo: 3, status: .pending)

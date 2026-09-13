@@ -78,7 +78,8 @@ enum ExportService {
               category TEXT,
               is_work_expense INTEGER NOT NULL DEFAULT 0,
               is_opening_balance INTEGER NOT NULL DEFAULT 0,
-              transfer_group_id TEXT,
+              link_group_id TEXT,
+              link_kind TEXT,
               source_file TEXT,
               imported_at TEXT,
               note TEXT,
@@ -105,9 +106,9 @@ enum ExportService {
         let txStmt = try prepare(db, """
             INSERT INTO transactions
             (id, account_id, date, description, amount, original_amount, original_currency,
-             status, category, is_work_expense, is_opening_balance, transfer_group_id,
+             status, category, is_work_expense, is_opening_balance, link_group_id, link_kind,
              source_file, imported_at, note)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
             """)
         for tx in transactions {
             guard let accountUUID = tx.account?.id.uuidString else { continue }
@@ -123,10 +124,11 @@ enum ExportService {
             bindText(txStmt, 9, tx.category?.displayPath)
             bindInt(txStmt, 10, tx.isWorkExpense ? 1 : 0)
             bindInt(txStmt, 11, tx.isOpeningBalance ? 1 : 0)
-            bindText(txStmt, 12, tx.transferGroupID?.uuidString)
-            bindText(txStmt, 13, tx.sourceFile)
-            bindText(txStmt, 14, dateTime.string(from: tx.importedAt))
-            bindText(txStmt, 15, tx.note)
+            bindText(txStmt, 12, tx.linkGroupID?.uuidString)
+            bindText(txStmt, 13, tx.isLinked ? tx.linkKind.rawValue : nil)
+            bindText(txStmt, 14, tx.sourceFile)
+            bindText(txStmt, 15, dateTime.string(from: tx.importedAt))
+            bindText(txStmt, 16, tx.note)
             try step(db, txStmt)
         }
         sqlite3_finalize(txStmt)

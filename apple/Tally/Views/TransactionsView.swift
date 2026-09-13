@@ -41,21 +41,29 @@ struct TransactionsView: View {
 
     private var account: Account? { accounts.first { $0.id == accountID } }
 
-    private var transactions: [Transaction] {
+    /// The rows to display plus the ids to render dimmed (a linked partner that
+    /// the status filter / search hid, pulled back in for context).
+    private var linkedDisplay: (rows: [Transaction], context: Set<UUID>) {
         if showSuggestedTransfers {
             // Ignore account scope / status filter / sort so each suggested
             // pair stays adjacent and ready to select-and-link.
-            return transferCandidates.flatMap { [$0.outgoing, $0.incoming] }
+            return (transferCandidates.flatMap { [$0.outgoing, $0.incoming] }, [])
         }
         let terms = searchTerms(searchText)
-        return allTransactions
-            .filter { tx in
-                (accountID == nil || tx.account?.id == accountID)
-                    && statusFilter.matches(tx)
-                    && tx.matches(searchTerms: terms)
-            }
-            .sorted(using: sortOrder)
+        let universe = allTransactions.filter { accountID == nil || $0.account?.id == accountID }
+        let (visible, context) = LinkGrouping.expandWithContext(universe) { tx in
+            statusFilter.matches(tx) && tx.matches(searchTerms: terms)
+        }
+        // Sort, then keep each link group's members adjacent under their anchor.
+        let ordered = LinkGrouping.orderedForDisplay(visible.sorted(using: sortOrder))
+        return (ordered, context)
     }
+
+    private var transactions: [Transaction] { linkedDisplay.rows }
+    private var contextIDs: Set<UUID> { linkedDisplay.context }
+
+    /// A linked partner shown only for context (its sibling matched the filter).
+    private func isContext(_ tx: Transaction) -> Bool { contextIDs.contains(tx.id) }
 
     var body: some View {
         Group {
@@ -109,27 +117,32 @@ struct TransactionsView: View {
             TableColumn("Date", value: \.date) { tx in
                 Text(DateText.string(tx.date))
                     .frame(maxWidth: .infinity, alignment: .trailing)
+                    .opacity(dim(tx))
             }
             .width(min: 96, ideal: 104)
-            TableColumn("Account", value: \.accountName) { Text($0.account?.name ?? "—") }
+            TableColumn("Account", value: \.accountName) { tx in
+                Text(tx.account?.name ?? "—").opacity(dim(tx))
+            }
             TableColumn("Description", value: \.descriptionText) { tx in
                 HStack(spacing: 6) {
-                    if tx.transferGroupID != nil {
-                        Image(systemName: "arrow.left.arrow.right")
+                    if tx.isLinked {
+                        Image(systemName: linkGlyph(tx))
                             .foregroundStyle(.tint)
-                            .help(transferHelp(tx))
+                            .help(linkHelp(tx))
                     }
                     Text(tx.descriptionText).lineLimit(1)
                 }
+                .opacity(dim(tx))
             }
-            TableColumn("Amount", value: \.amount) { tx in amountCell(tx) }
+            TableColumn("Amount", value: \.amount) { tx in amountCell(tx).opacity(dim(tx)) }
                 .width(min: 120, ideal: 140)
             TableColumn("Category", value: \.categorySortKey) { tx in
                 CategoryCell(tx: tx, categories: categories, suggestion: suggestion(for: tx))
+                    .opacity(dim(tx))
             }
             .width(min: 150, ideal: 210, max: 320)
-            TableColumn("Work") { tx in workCell(tx) }.width(60)
-            TableColumn("Status", value: \.statusRaw) { tx in statusBadge(tx) }.width(90)
+            TableColumn("Work") { tx in workCell(tx).opacity(dim(tx)) }.width(60)
+            TableColumn("Status", value: \.statusRaw) { tx in statusBadge(tx).opacity(dim(tx)) }.width(90)
         } rows: {
             ForEach(transactions) { tx in
                 TableRow(tx)
@@ -148,10 +161,17 @@ struct TransactionsView: View {
                 Button { linkTransfer() } label: {
                     Label("Link as Transfer", systemImage: "arrow.left.arrow.right")
                 }
-            } else if selected.contains(where: { $0.transferGroupID != nil }) {
+            }
+            if LinkService.canLinkRefund(selected) {
+                if !TransferMatcher.canLink(selected) { Divider() }
+                Button { linkRefund() } label: {
+                    Label("Link as Refund", systemImage: "arrow.uturn.backward")
+                }
+            }
+            if selected.contains(where: { $0.isLinked }) {
                 Divider()
-                Button { unlinkTransfer() } label: {
-                    Label("Unlink Transfer", systemImage: "arrow.left.arrow.right")
+                Button { unlinkSelection() } label: {
+                    Label("Unlink", systemImage: "link.badge.plus")
                 }
             }
         }
@@ -292,9 +312,15 @@ struct TransactionsView: View {
     }
 
     private func assignCategory(_ category: SpendingCategory) {
-        for tx in selectedTransactions() {
+        let selected = selectedTransactions()
+        for tx in selected {
             tx.category = category
             AutoTagger.learn(description: tx.descriptionText, category: category, in: context)
+        }
+        // Keep every link group's "one shared category" invariant: a recategorized
+        // member drags its whole group (incl. a dimmed partner) along.
+        for gid in Set(selected.compactMap { $0.linkGroupID }) {
+            LinkService.propagateCategory(category, groupID: gid, among: allTransactions, context: context)
         }
         try? context.save()
         propagateWorkCategories()
@@ -358,23 +384,38 @@ struct TransactionsView: View {
         recomputeMissingWork()
     }
 
-    private func unlinkTransfer() {
-        let groups = Set(selectedTransactions().compactMap { $0.transferGroupID })
+    private func linkRefund() {
+        LinkService.link(selectedTransactions(), kind: .refund, in: context)
+        selection.removeAll()
+        recomputeTransferCandidates()
+        recomputeMissingWork()
+    }
+
+    private func unlinkSelection() {
+        let groups = Set(selectedTransactions().compactMap { $0.linkGroupID })
         for gid in groups {
-            TransferMatcher.unlink(groupID: gid, in: allTransactions, context: context)
+            LinkService.unlink(groupID: gid, in: allTransactions, context: context)
         }
         selection.removeAll()
         recomputeTransferCandidates()
         recomputeMissingWork()
     }
 
-    /// Tooltip for the ↔ glyph: names the account(s) on the other side.
-    private func transferHelp(_ tx: Transaction) -> String {
-        guard let gid = tx.transferGroupID else { return "" }
+    /// Dim a linked partner that's only present for context.
+    private func dim(_ tx: Transaction) -> Double { isContext(tx) ? 0.4 : 1 }
+
+    private func linkGlyph(_ tx: Transaction) -> String {
+        tx.linkKind == .refund ? "arrow.uturn.backward" : "arrow.left.arrow.right"
+    }
+
+    /// Tooltip for the link glyph: names the account(s) on the other side.
+    private func linkHelp(_ tx: Transaction) -> String {
+        guard let gid = tx.linkGroupID else { return "" }
+        let noun = tx.linkKind == .refund ? "Refund" : "Transfer"
         let others = allTransactions
-            .filter { $0.transferGroupID == gid && $0.id != tx.id }
+            .filter { $0.linkGroupID == gid && $0.id != tx.id }
             .compactMap { $0.account?.name }
-        return others.isEmpty ? "Transfer" : "Transfer with \(others.joined(separator: ", "))"
+        return others.isEmpty ? noun : "\(noun) with \(others.joined(separator: ", "))"
     }
 
     private func setStatus(_ status: TransactionStatus) {

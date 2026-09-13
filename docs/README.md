@@ -16,7 +16,7 @@ website-ready overview of what the app does.
 | Importing statements (CSV + import profiles) | [importing.md](importing.md) |
 | Browsing & reviewing transactions (keyboard workflow) | [transactions-and-review.md](transactions-and-review.md) |
 | Categories & learning auto-tagging | [categories-and-autotagging.md](categories-and-autotagging.md) |
-| Cross-account transfer matching | [transfers.md](transfers.md) |
+| Linking transactions (transfers & refunds) | [transfers.md](transfers.md) |
 | Work-expense reconciliation | [work-expenses.md](work-expenses.md) |
 | Reports (charts, pivot, work grouping) | [reports.md](reports.md) |
 | Recurring transaction detection | [recurring.md](recurring.md) |
@@ -28,7 +28,8 @@ website-ready overview of what the app does.
 - **Multi-account, multi-currency** ledger with per-account balances.
 - **Keyboard-first review**: categorize, tag, confirm without the mouse.
 - **Learns** which category a merchant usually gets and pre-suggests it.
-- **Matches** transfers between your accounts and flags **work expenses** you
-  forgot to claim.
+- **Links** related transactions — transfers between your accounts and
+  **refunds** of a purchase (which net against it) — and flags **work expenses**
+  you forgot to claim.
 - **Reports** spending by category and month; detects **recurring** charges.
 - Local-first; iCloud/CloudKit sync is planned.

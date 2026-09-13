@@ -65,7 +65,7 @@ enum TransferMatcher {
     static func canLink(_ txs: [Transaction]) -> Bool {
         guard txs.count == 2 else { return false }
         let a = txs[0], b = txs[1]
-        guard a.transferGroupID == nil, b.transferGroupID == nil else { return false }
+        guard a.linkGroupID == nil, b.linkGroupID == nil else { return false }
         guard let accA = a.account?.id, let accB = b.account?.id, accA != accB else { return false }
         guard a.account?.currencyCode == b.account?.currencyCode else { return false }
         guard a.amount != 0, a.amount == -b.amount else { return false }
@@ -77,12 +77,7 @@ enum TransferMatcher {
     @MainActor
     static func link(_ txs: [Transaction], in context: ModelContext) {
         guard canLink(txs) else { return }
-        let gid = UUID()
-        for tx in txs {
-            tx.transferGroupID = gid
-            tx.status = .confirmed
-        }
-        try? context.save()
+        LinkService.link(txs, kind: .transfer, in: context)
     }
 
     /// A transaction the auto-matcher may propose as a transfer leg: still
@@ -90,7 +85,7 @@ enum TransferMatcher {
     /// uncategorized or already under a transfer-kind category.
     private static func isEligibleLeg(_ tx: Transaction) -> Bool {
         guard tx.status == .pending else { return false }
-        guard tx.transferGroupID == nil else { return false }
+        guard tx.linkGroupID == nil else { return false }
         guard !tx.isOpeningBalance else { return false }
         if let kind = tx.category?.kind { return kind == .transfer }
         return true   // uncategorized
@@ -105,17 +100,14 @@ enum TransferMatcher {
     /// Remove the transfer link from a group (both sides).
     @MainActor
     static func unlink(groupID: UUID, in txs: [Transaction], context: ModelContext) {
-        for tx in txs where tx.transferGroupID == groupID {
-            tx.transferGroupID = nil
-        }
-        try? context.save()
+        LinkService.unlink(groupID: groupID, in: txs, context: context)
     }
 
     /// Group confirmed transfers by their shared id for display.
     static func confirmedGroups(_ txs: [Transaction]) -> [(id: UUID, transactions: [Transaction])] {
         var groups: [UUID: [Transaction]] = [:]
         for tx in txs {
-            if let gid = tx.transferGroupID { groups[gid, default: []].append(tx) }
+            if let gid = tx.linkGroupID { groups[gid, default: []].append(tx) }
         }
         return groups
             .map { (id: $0.key, transactions: $0.value.sorted { $0.amount < $1.amount }) }

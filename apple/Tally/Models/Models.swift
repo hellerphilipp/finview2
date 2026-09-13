@@ -15,6 +15,18 @@ enum CategoryKind: String, Codable, CaseIterable, Identifiable, Sendable {
     var label: String { rawValue.capitalized }
 }
 
+/// The meaning of a linked group of transactions. Both kinds keep their members
+/// in one shared category and displayed together; they differ only in intent
+/// and how they're validated — the report math is identical (a group nets its
+/// signed amounts into its category).
+enum LinkKind: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// Money moved between the user's own accounts (equal-and-opposite legs).
+    case transfer
+    /// A charge later refunded/reimbursed (full or partial), possibly cross-account.
+    case refund
+    var id: String { rawValue }
+}
+
 // MARK: - Account
 
 @Model
@@ -70,7 +82,13 @@ final class Transaction {
     var sourceFile: String = ""
     var importedAt: Date = Date.now
     var fingerprint: String = ""
-    var transferGroupID: UUID?                        // reserved for matching (M2)
+    /// Shared id linking a group of related transactions (a transfer's two legs,
+    /// or a charge with its refund(s)). `originalName` preserves data from the
+    /// former `transferGroupID` column across the rename.
+    @Attribute(originalName: "transferGroupID") var linkGroupID: UUID?
+    /// What kind of link this is (transfer vs refund). Only meaningful when
+    /// `linkGroupID != nil`; defaults to `.transfer` so migrated links read right.
+    var linkKindRaw: String = LinkKind.transfer.rawValue
     /// A synthetic "Starting balance" entry seeding an account's balance.
     var isOpeningBalance: Bool = false
 
@@ -101,6 +119,14 @@ final class Transaction {
         get { TransactionStatus(rawValue: statusRaw) ?? .pending }
         set { statusRaw = newValue.rawValue }
     }
+
+    var linkKind: LinkKind {
+        get { LinkKind(rawValue: linkKindRaw) ?? .transfer }
+        set { linkKindRaw = newValue.rawValue }
+    }
+
+    /// Whether this transaction belongs to a link group (transfer or refund).
+    var isLinked: Bool { linkGroupID != nil }
 
     /// True when the account currency differs from the original statement currency.
     var isForeignCurrency: Bool {
