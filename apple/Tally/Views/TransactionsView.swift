@@ -24,6 +24,7 @@ struct TransactionsView: View {
     @Query(sort: [SortDescriptor(\SpendingCategory.sortOrder)]) private var categories: [SpendingCategory]
 
     @State private var statusFilter: StatusFilter = .all
+    @State private var searchText = ""
     @State private var sortOrder = [KeyPathComparator(\Transaction.date, order: .reverse)]
     @State private var selection = Set<UUID>()
     /// When on, the table shows only the auto-matcher's suggested transfer legs
@@ -46,21 +47,31 @@ struct TransactionsView: View {
             // pair stays adjacent and ready to select-and-link.
             return transferCandidates.flatMap { [$0.outgoing, $0.incoming] }
         }
+        let terms = searchTerms(searchText)
         return allTransactions
-            .filter { tx in (accountID == nil || tx.account?.id == accountID) && statusFilter.matches(tx) }
+            .filter { tx in
+                (accountID == nil || tx.account?.id == accountID)
+                    && statusFilter.matches(tx)
+                    && tx.matches(searchTerms: terms)
+            }
             .sorted(using: sortOrder)
     }
 
     var body: some View {
         Group {
             if transactions.isEmpty {
-                ContentUnavailableView(emptyTitle, systemImage: "tray",
-                                       description: Text(emptyMessage))
+                if searchText.isEmpty {
+                    ContentUnavailableView(emptyTitle, systemImage: "tray",
+                                           description: Text(emptyMessage))
+                } else {
+                    ContentUnavailableView.search(text: searchText)
+                }
             } else {
                 table
             }
         }
         .navigationTitle(account?.name ?? "Transactions")
+        .searchable(text: $searchText, prompt: "Search transactions")
         .toolbar { toolbarContent }
         .focusedSceneValue(\.reviewActions, actions)
         .onAppear {

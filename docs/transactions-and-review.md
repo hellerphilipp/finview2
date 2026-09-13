@@ -16,3 +16,15 @@ the **Transaction** menu, or keyboard shortcuts:
 Pending rows needing review are counted as **badges** on the sidebar (toggle in
 Settings). Confirming a row with an accepted suggestion applies that category,
 so a reviewed row shows a verified category rather than a suggestion.
+
+## Search
+
+Press **⌘F** (or click the search field in the top-right of the toolbar, which
+expands on demand) to search the ledger. Search narrows the list live and works
+alongside the status filter and account scope.
+
+It matches broadly across each transaction's **description**, original bank
+text, **merchant**, **category**, **account**, **tags**, **note**, **amount**,
+and **currency**. Type multiple words to require all of them — so `netflix 12`
+finds Netflix rows near CHF 12, and `CHF 64` finds a 64.00 charge on a CHF
+account. Clearing the field restores the full list.
