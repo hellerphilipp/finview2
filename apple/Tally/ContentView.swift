@@ -34,7 +34,6 @@ struct ContentView: View {
                     } label: {
                         Label("Transactions", systemImage: "list.bullet.rectangle")
                     }
-                    Label("Transfers", systemImage: "arrow.left.arrow.right").tag(NavTarget.transfers)
                     Label("Recurring", systemImage: "repeat").tag(NavTarget.recurring)
                     Label("Reports", systemImage: "chart.bar").tag(NavTarget.reports)
                 }
@@ -60,7 +59,6 @@ struct ContentView: View {
         case .dashboard: DashboardView()
         case .transactionsAll: TransactionsView(accountID: nil)
         case .account(let id): TransactionsView(accountID: id)
-        case .transfers: TransfersView()
         case .recurring: RecurringView()
         case .reports: ReportsView()
         case .accounts: AccountsView()

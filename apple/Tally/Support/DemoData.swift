@@ -53,9 +53,9 @@ enum DemoData {
             ctx.insert(tx)
         }
 
-        // A cross-account transfer (left ungrouped → shows as a suggested match).
-        add(current, "Transfer to Savings (Savings)", "-2000.00", daysAgo: 8)
-        add(savings, "Transfer from Current (Current)", "2000.00", daysAgo: 8)
+        // A cross-account transfer (pending + ungrouped → shows as a suggested match).
+        add(current, "Transfer to Savings (Savings)", "-2000.00", daysAgo: 8, status: .pending)
+        add(savings, "Transfer from Current (Current)", "2000.00", daysAgo: 8, status: .pending)
 
         // Everyday spending across a few months, categorized.
         add(current, "COOP Zurich (COOP Store)", "-42.50", daysAgo: 5, category: cat("Supermarket"))

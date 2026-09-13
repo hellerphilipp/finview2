@@ -26,6 +26,11 @@ struct TransactionsView: View {
     @State private var statusFilter: StatusFilter = .all
     @State private var sortOrder = [KeyPathComparator(\Transaction.date, order: .reverse)]
     @State private var selection = Set<UUID>()
+    /// When on, the table shows only the auto-matcher's suggested transfer legs
+    /// (across all accounts), each pair adjacent, so they can be linked.
+    @State private var showSuggestedTransfers = false
+    /// Cached suggested transfer pairs (drives the funnel count + filtered rows).
+    @State private var transferCandidates: [TransferMatcher.Candidate] = []
     @State private var showingPalette = false
     @State private var showingImport = false
     /// Cached so they aren't recomputed per row while scrolling.
@@ -36,7 +41,12 @@ struct TransactionsView: View {
     private var account: Account? { accounts.first { $0.id == accountID } }
 
     private var transactions: [Transaction] {
-        allTransactions
+        if showSuggestedTransfers {
+            // Ignore account scope / status filter / sort so each suggested
+            // pair stays adjacent and ready to select-and-link.
+            return transferCandidates.flatMap { [$0.outgoing, $0.incoming] }
+        }
+        return allTransactions
             .filter { tx in (accountID == nil || tx.account?.id == accountID) && statusFilter.matches(tx) }
             .sorted(using: sortOrder)
     }
@@ -62,9 +72,10 @@ struct TransactionsView: View {
             propagateWorkCategories()
             recomputeMissingWork()
             recomputeSuggestions()
+            recomputeTransferCandidates()
         }
         .onChange(of: selection) { actions.hasSelection = !selection.isEmpty }
-        .onChange(of: allTransactions) { recomputeMissingWork(); recomputeSuggestions() }
+        .onChange(of: allTransactions) { recomputeMissingWork(); recomputeSuggestions(); recomputeTransferCandidates() }
         .onChange(of: merchants) { recomputeSuggestions() }
         .sheet(isPresented: $showingPalette) {
             CategoryPalette(categories: categories) { assignCategory($0) }
@@ -90,7 +101,16 @@ struct TransactionsView: View {
             }
             .width(min: 96, ideal: 104)
             TableColumn("Account", value: \.accountName) { Text($0.account?.name ?? "—") }
-            TableColumn("Description", value: \.descriptionText) { Text($0.descriptionText).lineLimit(1) }
+            TableColumn("Description", value: \.descriptionText) { tx in
+                HStack(spacing: 6) {
+                    if tx.transferGroupID != nil {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .foregroundStyle(.tint)
+                            .help(transferHelp(tx))
+                    }
+                    Text(tx.descriptionText).lineLimit(1)
+                }
+            }
             TableColumn("Amount", value: \.amount) { tx in amountCell(tx) }
                 .width(min: 120, ideal: 140)
             TableColumn("Category", value: \.categorySortKey) { tx in
@@ -111,6 +131,18 @@ struct TransactionsView: View {
             Divider()
             Button("Confirm") { confirmSelection() }
             Button("Reject", role: .destructive) { rejectSelection() }
+            let selected = selectedTransactions()
+            if TransferMatcher.canLink(selected) {
+                Divider()
+                Button { linkTransfer() } label: {
+                    Label("Link as Transfer", systemImage: "arrow.left.arrow.right")
+                }
+            } else if selected.contains(where: { $0.transferGroupID != nil }) {
+                Divider()
+                Button { unlinkTransfer() } label: {
+                    Label("Unlink Transfer", systemImage: "arrow.left.arrow.right")
+                }
+            }
         }
     }
 
@@ -152,12 +184,35 @@ struct TransactionsView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             Picker("Status", selection: $statusFilter) {
-                ForEach(StatusFilter.allCases) { Text($0.label).tag($0) }
+                ForEach(StatusFilter.allCases) { filter in
+                    Text(segmentLabel(filter)).tag(filter)
+                }
             }
             .pickerStyle(.segmented)
             .fixedSize()
         }
         ToolbarItemGroup(placement: .primaryAction) {
+            ZStack(alignment: .topTrailing) {
+                Menu {
+                    Toggle(isOn: $showSuggestedTransfers) {
+                        Text("Suggested Transfers")
+                    }
+                    .badge(transferCandidates.count)
+                    .disabled(transferCandidates.isEmpty && !showSuggestedTransfers)
+                } label: {
+                    Label("Filter", systemImage: showSuggestedTransfers
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease.circle")
+                }
+                .help("Show suggested transfers to link")
+
+                // Overlaid as a sibling (not inside the Menu label) so the
+                // toolbar doesn't flatten it to a monochrome template.
+                CountBubble(count: transferCandidates.count)
+                    .allowsHitTesting(false)
+                    .offset(x: 5, y: -6)
+            }
+
             Button { showingPalette = true } label: { Label("Assign Category", systemImage: "tag") }
                 .disabled(selection.isEmpty)
                 .keyboardShortcut("k", modifiers: .command)
@@ -174,6 +229,19 @@ struct TransactionsView: View {
                 Label("Add", systemImage: "plus")
             }
         }
+    }
+
+    /// Pending (unreviewed) transactions in the current account scope.
+    private var pendingCount: Int {
+        allTransactions.filter {
+            (accountID == nil || $0.account?.id == accountID) && $0.status == .pending
+        }.count
+    }
+
+    /// Segment title; the "To Review" segment carries a live unreviewed count.
+    private func segmentLabel(_ filter: StatusFilter) -> String {
+        if filter == .toReview, pendingCount > 0 { return "\(filter.label) (\(pendingCount))" }
+        return filter.label
     }
 
     // MARK: Empty-state text
@@ -267,6 +335,37 @@ struct TransactionsView: View {
     }
     private func rejectSelection() { setStatus(.rejected) }
 
+    private func recomputeTransferCandidates() {
+        transferCandidates = TransferMatcher.candidates(allTransactions)
+        if transferCandidates.isEmpty { showSuggestedTransfers = false }
+    }
+
+    private func linkTransfer() {
+        TransferMatcher.link(selectedTransactions(), in: context)
+        selection.removeAll()
+        recomputeTransferCandidates()
+        recomputeMissingWork()
+    }
+
+    private func unlinkTransfer() {
+        let groups = Set(selectedTransactions().compactMap { $0.transferGroupID })
+        for gid in groups {
+            TransferMatcher.unlink(groupID: gid, in: allTransactions, context: context)
+        }
+        selection.removeAll()
+        recomputeTransferCandidates()
+        recomputeMissingWork()
+    }
+
+    /// Tooltip for the ↔ glyph: names the account(s) on the other side.
+    private func transferHelp(_ tx: Transaction) -> String {
+        guard let gid = tx.transferGroupID else { return "" }
+        let others = allTransactions
+            .filter { $0.transferGroupID == gid && $0.id != tx.id }
+            .compactMap { $0.account?.name }
+        return others.isEmpty ? "Transfer" : "Transfer with \(others.joined(separator: ", "))"
+    }
+
     private func setStatus(_ status: TransactionStatus) {
         selectedTransactions().forEach { $0.status = status }
         selection.removeAll()
@@ -281,5 +380,23 @@ struct TransactionsView: View {
         actions.assignCategory = { showingPalette = true }
         actions.acceptSuggestion = { acceptSuggestions() }
         actions.hasSelection = !selection.isEmpty
+    }
+}
+
+/// A small red count "bubble" for overlaying on a toolbar glyph. Renders
+/// nothing when `count` is zero.
+private struct CountBubble: View {
+    let count: Int
+
+    var body: some View {
+        if count > 0 {
+            Text("\(count)")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .frame(minWidth: 15, minHeight: 15)
+                .background(Capsule().fill(.red))
+                .fixedSize()
+        }
     }
 }

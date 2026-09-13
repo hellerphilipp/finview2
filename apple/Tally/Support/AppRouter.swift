@@ -7,7 +7,6 @@ enum NavTarget: Hashable {
     case dashboard
     case transactionsAll
     case account(UUID)
-    case transfers
     case recurring
     case reports
     case accounts
@@ -45,7 +44,6 @@ final class AppRouter {
     init() {
         switch ProcessInfo.processInfo.environment["TALLY_VIEW"] {
         case "transactions": selection = .transactionsAll
-        case "transfers": selection = .transfers
         case "recurring": selection = .recurring
         case "reports": selection = .reports
         case "accounts": selection = .accounts
