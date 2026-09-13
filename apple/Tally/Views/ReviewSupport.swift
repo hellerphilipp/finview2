@@ -6,7 +6,6 @@ import SwiftData
 @MainActor
 final class ReviewActions: ObservableObject {
     var confirm: () -> Void = {}
-    var reject: () -> Void = {}
     var toggleWork: () -> Void = {}
     var assignCategory: () -> Void = {}
     var acceptSuggestion: () -> Void = {}

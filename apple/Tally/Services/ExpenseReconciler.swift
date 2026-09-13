@@ -29,11 +29,11 @@ enum ExpenseReconciler {
         }
 
         let charges = transactions
-            .filter { $0.isWorkExpense && $0.status != .rejected && !$0.isOpeningBalance
+            .filter { $0.isWorkExpense && !$0.isOpeningBalance
                       && $0.amount < 0 && $0.account?.id != expense.id }
             .sorted { $0.date < $1.date }
         var lineItems = transactions
-            .filter { $0.account?.id == expense.id && $0.amount > 0 && $0.status != .rejected
+            .filter { $0.account?.id == expense.id && $0.amount > 0
                       && !$0.isOpeningBalance }
 
         var missing: [Transaction] = []

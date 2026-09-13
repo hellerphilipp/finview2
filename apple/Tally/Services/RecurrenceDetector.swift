@@ -27,10 +27,10 @@ enum RecurrenceDetector {
         let nextExpected: Date
     }
 
-    /// Group non-rejected transactions by merchant key and report those with a
+    /// Group charge transactions by merchant key and report those with a
     /// consistent monthly/quarterly/yearly cadence over 3+ occurrences.
     static func detect(_ txs: [Transaction], calendar: Calendar = .current) -> [Series] {
-        let active = txs.filter { $0.status != .rejected && $0.amount < 0 }
+        let active = txs.filter { $0.amount < 0 }
         var groups: [String: [Transaction]] = [:]
         for tx in active {
             groups[AutoTagger.merchantKey(from: tx.descriptionText), default: []].append(tx)

@@ -14,7 +14,19 @@ enum Seeder {
     static func seedIfNeeded(_ context: ModelContext, defaults: UserDefaults = .standard) {
         seedBuiltinProfiles(context, defaults: defaults)
         seedStarterCategories(context)
+        purgeRejectedTransactions(context)
         try? context.save()
+    }
+
+    /// One-time cleanup: the old "rejected" status is gone (a transaction is
+    /// either confirmed or not), so delete any leftover rejected rows that were
+    /// otherwise invisible in the UI.
+    private static func purgeRejectedTransactions(_ context: ModelContext) {
+        let descriptor = FetchDescriptor<Transaction>(
+            predicate: #Predicate { $0.statusRaw == "rejected" }
+        )
+        guard let rejected = try? context.fetch(descriptor), !rejected.isEmpty else { return }
+        for tx in rejected { context.delete(tx) }
     }
 
     /// Pre-install every import spec shipped in ImportKit's bundle as an

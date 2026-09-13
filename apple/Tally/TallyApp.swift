@@ -61,10 +61,6 @@ struct TransactionCommands: Commands {
             Button("Confirm") { actions?.confirm() }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(actions?.hasSelection != true)
-
-            Button("Reject") { actions?.reject() }
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(actions?.hasSelection != true)
         }
     }
 }

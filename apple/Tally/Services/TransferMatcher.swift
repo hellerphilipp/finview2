@@ -16,8 +16,8 @@ enum TransferMatcher {
     }
 
     /// Suggest 1:1 transfer matches among not-yet-reviewed transactions.
-    /// A leg is only eligible when it is still **pending** (not confirmed or
-    /// rejected), not already grouped, not an opening balance, and either
+    /// A leg is only eligible when it is still **pending** (not confirmed),
+    /// not already grouped, not an opening balance, and either
     /// uncategorized or already filed under a transfer-kind category. Pairs must
     /// then share a currency, have equal-and-opposite amounts, sit on different
     /// accounts, and fall within `maxDayGap` days (default 10). Manual linking

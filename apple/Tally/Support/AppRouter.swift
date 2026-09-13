@@ -26,7 +26,7 @@ enum StatusFilter: String, CaseIterable, Identifiable {
     }
     func matches(_ tx: Transaction) -> Bool {
         switch self {
-        case .all: tx.status != .rejected
+        case .all: true
         case .toReview: tx.status == .pending
         case .confirmed: tx.status == .confirmed
         }

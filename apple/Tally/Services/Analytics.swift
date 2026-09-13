@@ -4,11 +4,6 @@ import Foundation
 /// objects but contain no persistence, so they're easy to unit-test.
 enum Analytics {
 
-    /// Transactions counted toward balances (everything not rejected).
-    static func active(_ txs: [Transaction]) -> [Transaction] {
-        txs.filter { $0.status != .rejected }
-    }
-
     /// A transaction explicitly filed under a transfer-kind category, which is an
     /// escape hatch to keep a *lone, unlinked* transfer out of spending. Linked
     /// groups (transfers or refunds) are handled by netting in the aggregations
@@ -17,10 +12,10 @@ enum Analytics {
         tx.category?.kind == .transfer
     }
 
-    /// Transactions that count as real spending/income (active, non-transfer,
-    /// excluding synthetic opening-balance entries).
+    /// Transactions that count as real spending/income (non-transfer, excluding
+    /// synthetic opening-balance entries).
     static func spendable(_ txs: [Transaction]) -> [Transaction] {
-        active(txs).filter { !isTransfer($0) && !$0.isOpeningBalance }
+        txs.filter { !isTransfer($0) && !$0.isOpeningBalance }
     }
 
     /// Default report bucket for a transaction: its top-level category name.
@@ -28,9 +23,9 @@ enum Analytics {
         topLevelName(tx.category)
     }
 
-    /// Account balance = sum of active transaction amounts (spend is negative).
+    /// Account balance = sum of transaction amounts (spend is negative).
     static func balance(of account: Account) -> Decimal {
-        active(account.txs).reduce(Decimal.zero) { $0 + $1.amount }
+        account.txs.reduce(Decimal.zero) { $0 + $1.amount }
     }
 
     /// Most recent activity for an account (latest transaction or import time).

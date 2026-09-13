@@ -174,7 +174,6 @@ struct TransactionsView: View {
             Button("Toggle Work Expense") { toggleWork() }
             Divider()
             Button("Confirm") { confirmSelection() }
-            Button("Reject", role: .destructive) { rejectSelection() }
             let selected = selectedTransactions()
             if TransferMatcher.canLink(selected) {
                 Divider()
@@ -264,7 +263,6 @@ struct TransactionsView: View {
         switch tx.status {
         case .pending: Text("To Review").foregroundStyle(.orange)
         case .confirmed: Text("Confirmed").foregroundStyle(.secondary)
-        case .rejected: Text("Rejected").foregroundStyle(.red)
         }
     }
 
@@ -427,7 +425,6 @@ struct TransactionsView: View {
         recomputeSuggestions()
         propagateWorkCategories()
     }
-    private func rejectSelection() { setStatus(.rejected) }
 
     private func recomputeTransferCandidates() {
         transferCandidates = TransferMatcher.candidates(allTransactions)
@@ -484,7 +481,6 @@ struct TransactionsView: View {
 
     private func wireActions() {
         actions.confirm = { confirmSelection() }
-        actions.reject = { rejectSelection() }
         actions.toggleWork = { toggleWork() }
         actions.assignCategory = { showingPalette = true }
         actions.acceptSuggestion = { acceptSuggestions() }

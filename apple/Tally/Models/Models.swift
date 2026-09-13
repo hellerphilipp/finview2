@@ -4,7 +4,7 @@ import SwiftData
 // MARK: - Enums (stored as raw String for CloudKit friendliness)
 
 enum TransactionStatus: String, Codable, CaseIterable, Identifiable, Sendable {
-    case pending, confirmed, rejected
+    case pending, confirmed
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
 }
