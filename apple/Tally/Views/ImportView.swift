@@ -7,9 +7,23 @@ struct ImportView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
 
+    /// Account to pre-select (e.g. the one selected in the sidebar).
+    let preselectedAccountID: UUID?
+    /// A CSV to load immediately (e.g. one dropped onto the ledger).
+    let initialFileURL: URL?
+
+    init(preselectedAccountID: UUID? = nil, initialFileURL: URL? = nil) {
+        self.preselectedAccountID = preselectedAccountID
+        self.initialFileURL = initialFileURL
+    }
+
     @State private var selectedAccountID: PersistentIdentifier?
     @State private var showingFileImporter = false
     @State private var fileName = ""
+    /// The CSV text of the chosen file, kept so changing the account re-previews
+    /// without re-reading (its security scope may already be gone).
+    @State private var loadedCSV: String?
+    @State private var didLoadInitial = false
     @State private var previewRows: [PreviewRow] = []
     @State private var classification: ImportService.PreviewResult?
     @State private var errorMessage: String?
@@ -31,8 +45,17 @@ struct ImportView: View {
                       allowsMultipleSelection: false,
                       onCompletion: handleFile)
         .onAppear {
-            if selectedAccountID == nil { selectedAccountID = accounts.first?.persistentModelID }
+            if selectedAccountID == nil {
+                let preselected = accounts.first { $0.id == preselectedAccountID }
+                selectedAccountID = preselected?.persistentModelID ?? accounts.first?.persistentModelID
+            }
+            if let url = initialFileURL, !didLoadInitial {
+                didLoadInitial = true
+                loadURL(url)
+            }
         }
+        // Changing the account re-runs the preview against the loaded CSV.
+        .onChange(of: selectedAccountID) { if loadedCSV != nil { repreview() } }
     }
 
     // MARK: Controls
@@ -141,22 +164,39 @@ struct ImportView: View {
     // MARK: Actions
 
     private func handleFile(_ result: Result<[URL], Error>) {
+        guard let url = try? result.get().first else { return }
+        loadURL(url)
+    }
+
+    /// Read a CSV file once (caching its text) and preview it.
+    private func loadURL(_ url: URL) {
+        let needsScope = url.startAccessingSecurityScopedResource()
+        defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
+        do {
+            loadedCSV = try String(contentsOf: url, encoding: .utf8)
+            fileName = url.lastPathComponent
+            repreview()
+        } catch {
+            errorMessage = "Could not read \(url.lastPathComponent): \(error.localizedDescription)"
+            previewRows = []
+            classification = nil
+        }
+    }
+
+    /// Re-run the preview for the cached CSV against the selected account.
+    private func repreview() {
         errorMessage = nil
         successMessage = nil
+        guard let text = loadedCSV else { return }
+        guard let account = selectedAccount, let profile = account.importProfile else {
+            previewRows = []
+            classification = nil
+            errorMessage = "Select an account with an import profile to preview \(fileName)."
+            return
+        }
         do {
-            guard let url = try result.get().first else { return }
-            let needsScope = url.startAccessingSecurityScopedResource()
-            defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
-
-            guard let account = selectedAccount, let profile = account.importProfile else {
-                errorMessage = "Select an account with an import profile first."
-                return
-            }
-            let text = try String(contentsOf: url, encoding: .utf8)
             let rows = try ImportService.preview(csvText: text, profileYAML: profile.specYAML)
             let existing = existingFingerprints(for: account)
-
-            fileName = url.lastPathComponent
             previewRows = rows.map { row in
                 PreviewRow(row: row,
                            isDuplicate: existing.contains(ImportService.fingerprint(accountID: account.id, row: row)))
@@ -178,6 +218,7 @@ struct ImportView: View {
             previewRows = []
             classification = nil
             fileName = ""
+            loadedCSV = nil
         } catch {
             errorMessage = "Import failed: \(error.localizedDescription)"
         }

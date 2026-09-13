@@ -26,7 +26,10 @@ struct SettingsView: View {
             }
             .formStyle(.grouped)
             .tabItem { Label("General", systemImage: "gearshape") }
+
+            ImportSpecsSettings()
+                .tabItem { Label("Import Specs", systemImage: "doc.text") }
         }
-        .frame(width: 460, height: 340)
+        .frame(width: 480, height: 440)
     }
 }

@@ -14,6 +14,7 @@ website-ready overview of what the app does.
 |------|------|
 | Accounts, starting balances, the work-expense account | [accounts.md](accounts.md) |
 | Importing statements (CSV + import profiles) | [importing.md](importing.md) |
+| Import specs (adding banks via YAML/drag/URL) | [import-specs.md](import-specs.md) |
 | Browsing & reviewing transactions (keyboard workflow) | [transactions-and-review.md](transactions-and-review.md) |
 | Categories & learning auto-tagging | [categories-and-autotagging.md](categories-and-autotagging.md) |
 | Linking transactions (transfers & refunds) | [transfers.md](transfers.md) |

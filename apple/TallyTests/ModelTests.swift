@@ -10,12 +10,15 @@ struct ModelTests {
     // would let the ModelContainer deallocate and orphan the context.
     let container: ModelContainer = Persistence.makeContainer(inMemory: true)
     var ctx: ModelContext { container.mainContext }
+    // Isolated so the built-in seed marker doesn't leak across tests/runs.
+    let defaults: UserDefaults = UserDefaults(suiteName: "ModelTests-\(UUID().uuidString)")!
 
     @Test func seedingCreatesSwisscardProfileAndCategories() throws {
-        Seeder.seedIfNeeded(ctx)
+        Seeder.seedIfNeeded(ctx, defaults: defaults)
 
         let profiles = try ctx.fetch(FetchDescriptor<ImportProfile>())
         #expect(profiles.contains { $0.name == "Swisscard" })
+        #expect(profiles.contains { $0.name == "Revolut" })
         #expect(profiles.first { $0.name == "Swisscard" }?.specYAML.contains("row[5]") == true)
 
         let categories = try ctx.fetch(FetchDescriptor<SpendingCategory>())
@@ -24,12 +27,16 @@ struct ModelTests {
     }
 
     @Test func seedingIsIdempotent() throws {
-        Seeder.seedIfNeeded(ctx)
+        Seeder.seedIfNeeded(ctx, defaults: defaults)
         let firstCount = try ctx.fetch(FetchDescriptor<SpendingCategory>()).count
-        Seeder.seedIfNeeded(ctx)
+        let firstProfiles = try ctx.fetch(FetchDescriptor<ImportProfile>()).count
+        Seeder.seedIfNeeded(ctx, defaults: defaults)
         let secondCount = try ctx.fetch(FetchDescriptor<SpendingCategory>()).count
         #expect(firstCount == secondCount)
-        #expect(try ctx.fetch(FetchDescriptor<ImportProfile>()).count == 1)
+        // Built-ins seed once; re-seeding adds no duplicates.
+        let secondProfiles = try ctx.fetch(FetchDescriptor<ImportProfile>()).count
+        #expect(firstProfiles == secondProfiles)
+        #expect(firstProfiles >= 2)  // Swisscard + Revolut
     }
 
     @Test func transactionRelationshipsAndStatus() throws {

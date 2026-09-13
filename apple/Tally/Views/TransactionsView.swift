@@ -35,6 +35,9 @@ struct TransactionsView: View {
     @State private var transferCandidates: [TransferMatcher.Candidate] = []
     @State private var showingPalette = false
     @State private var showingImport = false
+    /// A CSV dropped onto the ledger, handed to the import sheet.
+    @State private var importFileURL: URL?
+    @State private var isDropTargeted = false
     /// Cached so they aren't recomputed per row while scrolling.
     @State private var missingWorkIDs: Set<UUID> = []
     @State private var suggestions: [UUID: SpendingCategory] = [:]
@@ -103,9 +106,9 @@ struct TransactionsView: View {
         .sheet(isPresented: $showingPalette) {
             CategoryPalette(categories: categories) { assignCategory($0) }
         }
-        .sheet(isPresented: $showingImport) {
+        .sheet(isPresented: $showingImport, onDismiss: { importFileURL = nil }) {
             NavigationStack {
-                ImportView()
+                ImportView(preselectedAccountID: accountID, initialFileURL: importFileURL)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { showingImport = false }
@@ -114,6 +117,19 @@ struct TransactionsView: View {
             }
             .frame(minWidth: 640, minHeight: 460)
         }
+        // Drop a CSV anywhere on the ledger to open the importer (which already
+        // previews the parsed rows before anything is saved).
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first(where: isImportable) else { return false }
+            importFileURL = url
+            showingImport = true
+            return true
+        } isTargeted: { isDropTargeted = $0 }
+    }
+
+    /// Accept only CSV/text-ish files as drop targets.
+    private func isImportable(_ url: URL) -> Bool {
+        ["csv", "txt", "tsv"].contains(url.pathExtension.lowercased())
     }
 
     private var table: some View {
@@ -200,6 +216,7 @@ struct TransactionsView: View {
     }
 
     private var statusBarText: String {
+        if isDropTargeted { return "Drop file to import transactions" }
         if selection.count > 1 {
             let sel = selectedTransactions()
             let codes = Set(sel.map { $0.account?.currencyCode ?? "" })
@@ -295,7 +312,7 @@ struct TransactionsView: View {
                 .keyboardShortcut(.return, modifiers: .command)
 
             Menu {
-                Button("Import Statement…") { showingImport = true }
+                Button("Import Statement…") { importFileURL = nil; showingImport = true }
             } label: {
                 Label("Add", systemImage: "plus")
             }

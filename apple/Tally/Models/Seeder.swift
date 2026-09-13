@@ -3,19 +3,41 @@ import SwiftData
 import ImportKit
 
 enum Seeder {
-    /// Seed the Swisscard import profile and a starter category tree the first
+    /// UserDefaults key recording which built-in spec names have already been
+    /// offered, so a built-in the user *deletes* doesn't reappear on next launch
+    /// while genuinely new bundled specs (added in future app versions) still seed.
+    private static let seededBuiltinsKey = "seededBuiltinSpecNames"
+
+    /// Seed the bundled import profiles and a starter category tree the first
     /// time the app runs. Idempotent: safe to call on every launch.
-    static func seedIfNeeded(_ context: ModelContext) {
-        seedSwisscardProfile(context)
+    /// `defaults` is injectable so tests don't touch the shared store.
+    static func seedIfNeeded(_ context: ModelContext, defaults: UserDefaults = .standard) {
+        seedBuiltinProfiles(context, defaults: defaults)
         seedStarterCategories(context)
         try? context.save()
     }
 
-    private static func seedSwisscardProfile(_ context: ModelContext) {
+    /// Pre-install every import spec shipped in ImportKit's bundle as an
+    /// `ImportProfile`. Each built-in is seeded at most once (tracked in
+    /// UserDefaults) so user deletions stick.
+    private static func seedBuiltinProfiles(_ context: ModelContext, defaults: UserDefaults) {
+        var seeded = Set(defaults.stringArray(forKey: seededBuiltinsKey) ?? [])
         let existing = (try? context.fetch(FetchDescriptor<ImportProfile>())) ?? []
-        guard !existing.contains(where: { $0.name == "Swisscard" }) else { return }
-        guard let yaml = try? StatementImporter.swisscardSpecYAML() else { return }
-        context.insert(ImportProfile(name: "Swisscard", specYAML: yaml, version: "1.0"))
+        let existingNames = Set(existing.map(\.name))
+
+        for yaml in StatementImporter.bundledSpecYAMLs() {
+            guard let spec = try? ImportSpec(yaml: yaml) else { continue }
+            let name = spec.name
+            // Skip if we've offered it before or a same-named profile is present
+            // (the latter migrates existing users who already have "Swisscard").
+            if seeded.contains(name) || existingNames.contains(name) {
+                seeded.insert(name)
+                continue
+            }
+            context.insert(ImportProfile(name: name, specYAML: yaml, version: spec.version))
+            seeded.insert(name)
+        }
+        defaults.set(Array(seeded), forKey: seededBuiltinsKey)
     }
 
     private static func seedStarterCategories(_ context: ModelContext) {

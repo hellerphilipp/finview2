@@ -120,3 +120,19 @@ private func swisscardImporter() throws -> StatementImporter {
     let rows = CSV.parse("a,\"b,c\",d\n")
     #expect(rows == [["a", "b,c", "d"]])
 }
+
+// MARK: - Bundled specs
+
+@Test func bundledSpecsAreEnumeratedAndParse() throws {
+    let yamls = StatementImporter.bundledSpecYAMLs()
+    #expect(yamls.count >= 2)  // swisscard + revolut ship today
+
+    let names = try yamls.map { try ImportSpec(yaml: $0).name }
+    #expect(names.contains("Swisscard"))
+    #expect(names.contains("Revolut"))
+
+    // Every bundled spec must be a valid, compilable importer.
+    for yaml in yamls {
+        #expect(throws: Never.self) { try StatementImporter(yaml: yaml) }
+    }
+}

@@ -1,0 +1,13 @@
+version: "1.0"
+name: Revolut
+
+parser:
+  delimiter: ","
+  skip_rows: 1
+
+mappings:
+  timestamp: "row[3] != '' ? row[3] : row[2]"
+  description: "row[4]"
+  amount_original: "double(row[5])"
+  currency_original: "row[7]"
+  amount_in_account_currency: "double(row[5])"

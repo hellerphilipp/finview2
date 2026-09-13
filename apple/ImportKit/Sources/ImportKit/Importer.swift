@@ -74,6 +74,17 @@ public struct StatementImporter {
         return text
     }
 
+    /// The YAML text of every import spec shipped in ImportKit's resource
+    /// bundle, sorted by file name for deterministic ordering. The app seeds one
+    /// `ImportProfile` per entry so adding a new bank is just dropping a YAML
+    /// into `Resources/` — no code changes needed.
+    public static func bundledSpecYAMLs() -> [String] {
+        let urls = Bundle.module.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? []
+        return urls
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
+    }
+
     /// Parse and normalize an entire CSV document.
     public func normalizedRows(fromCSV text: String) throws -> [NormalizedRow] {
         let delimiter = spec.parser.delimiter.first ?? ","
