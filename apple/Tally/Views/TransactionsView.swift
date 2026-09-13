@@ -23,6 +23,7 @@ struct TransactionsView: View {
     @Query private var accounts: [Account]
     @Query(sort: [SortDescriptor(\SpendingCategory.sortOrder)]) private var categories: [SpendingCategory]
 
+    @AppStorage("showStatusBar") private var showStatusBar = false
     @State private var statusFilter: StatusFilter = .all
     @State private var searchText = ""
     @State private var sortOrder = [KeyPathComparator(\Transaction.date, order: .reverse)]
@@ -77,6 +78,9 @@ struct TransactionsView: View {
             } else {
                 table
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if showStatusBar { statusBar }
         }
         .navigationTitle(account?.name ?? "Transactions")
         .searchable(text: $searchText, prompt: "Search transactions")
@@ -175,6 +179,42 @@ struct TransactionsView: View {
                 }
             }
         }
+    }
+
+    /// Finder-style bottom bar: a right-aligned summary of the ledger. Shows the
+    /// visible/total transaction count, or a selected count + sum when 2+ rows
+    /// are selected (the sum only when they share one currency).
+    private var statusBar: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Text(statusBarText)
+                .font(.callout)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    private var statusBarText: String {
+        if selection.count > 1 {
+            let sel = selectedTransactions()
+            let codes = Set(sel.map { $0.account?.currencyCode ?? "" })
+            if codes.count == 1, let code = codes.first {
+                let total = sel.map(\.amount).reduce(Decimal.zero, +)
+                return "\(sel.count) transactions selected. Sum: \(Money.string(total, currency: code))"
+            }
+            return "\(sel.count) transactions selected"
+        }
+        let visible = transactions.count
+        let total = allTransactions.filter { accountID == nil || $0.account?.id == accountID }.count
+        if visible == total {
+            return "\(total) \(total == 1 ? "transaction" : "transactions")"
+        }
+        return "Showing \(visible) of \(total) transactions"
     }
 
     /// Currency code pinned left, number right-aligned, flexible gap between.

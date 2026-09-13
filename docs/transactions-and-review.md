@@ -17,6 +17,18 @@ Pending rows needing review are counted as **badges** on the sidebar (toggle in
 Settings). Confirming a row with an accepted suggestion applies that category,
 so a reviewed row shows a verified category rather than a suggestion.
 
+## Status bar
+
+Enable **Show status bar** in Settings for a Finder-style bar along the bottom
+of the ledger. It summarizes, right-aligned, what you're looking at:
+
+- The transaction count — **N transactions** when everything is visible, or
+  **Showing X of Y transactions** when a status filter or search is narrowing
+  the list.
+- When you select **two or more** rows, the selected count and their **sum** —
+  e.g. **2 transactions selected. Sum: CHF 0.00**. The sum only appears when the
+  selected rows share one currency; with mixed currencies it shows just the count.
+
 ## Search
 
 Press **⌘F** (or click the search field in the top-right of the toolbar, which

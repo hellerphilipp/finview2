@@ -8,6 +8,9 @@ enum Money {
         f.numberStyle = .currency
         f.currencyCode = currency
         f.locale = Locale(identifier: "de_CH")
+        // Keep a space between the currency symbol and a negative amount
+        // (e.g. "CHF -111.90" rather than "CHF-111.90").
+        f.negativePrefix = f.positivePrefix + f.minusSign
         return f.string(from: value as NSDecimalNumber) ?? "\(value) \(currency)"
     }
 

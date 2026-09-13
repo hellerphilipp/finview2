@@ -4,6 +4,7 @@ struct SettingsView: View {
     @AppStorage("staleDays") private var staleDays = 35
     @AppStorage("defaultCurrency") private var defaultCurrency = "CHF"
     @AppStorage("showUnreviewedBadges") private var showUnreviewedBadges = true
+    @AppStorage("showStatusBar") private var showStatusBar = false
 
     var body: some View {
         TabView {
@@ -19,10 +20,13 @@ struct SettingsView: View {
                 Section("Sidebar") {
                     Toggle("Show count for unreviewed items", isOn: $showUnreviewedBadges)
                 }
+                Section("Transactions") {
+                    Toggle("Show status bar", isOn: $showStatusBar)
+                }
             }
             .formStyle(.grouped)
             .tabItem { Label("General", systemImage: "gearshape") }
         }
-        .frame(width: 460, height: 280)
+        .frame(width: 460, height: 340)
     }
 }

@@ -17,6 +17,8 @@ The home screen shows:
   fresh import.
 - **Default currency**.
 - **Show count for unreviewed items** — toggle the sidebar badges.
+- **Show status bar** — show a Finder-style status bar at the bottom of the
+  Transactions ledger (off by default).
 
 ## Data
 
